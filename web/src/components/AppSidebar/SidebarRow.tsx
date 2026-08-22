@@ -32,14 +32,15 @@ interface Props {
   count?: number;
   onClick?: () => void;
   trailing?: ReactNode;
+  className?: string;
 }
 
-const SidebarRow = ({ active, icon: Icon, label, count, onClick, trailing }: Props) => (
+const SidebarRow = ({ active, icon: Icon, label, count, onClick, trailing, className }: Props) => (
   <button
     type="button"
     onClick={onClick}
     aria-pressed={active || undefined}
-    className={cn(SIDEBAR_ROW_CLASSES, sidebarRowStateClasses(active))}
+    className={cn(SIDEBAR_ROW_CLASSES, sidebarRowStateClasses(active), className)}
   >
     {Icon && <Icon className={SIDEBAR_ROW_ICON_CLASSES} strokeWidth={1.8} />}
     <span className="min-w-0 flex-1 truncate text-left">{label}</span>

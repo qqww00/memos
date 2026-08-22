@@ -43,6 +43,7 @@ vi.mock("@/hooks/useBoardQueries", () => ({
                 columnId: "col-1",
                 isClosed: false,
                 category: "frontend",
+                milestone: "v1.0",
               },
             },
             {
@@ -52,10 +53,36 @@ vi.mock("@/hooks/useBoardQueries", () => ({
                 columnId: "col-3",
                 isClosed: true,
                 category: "backend",
+                milestone: "v1.0",
               },
             },
           ]
         : [],
+    isLoading: false,
+  }),
+  useAllBoardCards: () => ({
+    data: [
+      {
+        name: "memos/1",
+        kanban: {
+          boardId: "sprint-1",
+          columnId: "col-1",
+          isClosed: false,
+          category: "frontend",
+          milestone: "v1.0",
+        },
+      },
+      {
+        name: "memos/2",
+        kanban: {
+          boardId: "sprint-1",
+          columnId: "col-3",
+          isClosed: true,
+          category: "backend",
+          milestone: "v1.0",
+        },
+      },
+    ],
     isLoading: false,
   }),
   useCreateBoard: () => ({ mutateAsync: vi.fn(), isPending: false }),
@@ -68,7 +95,7 @@ describe("BoardsSidebarContent", () => {
     defaultOptions: { queries: { retry: false } },
   });
 
-  it("renders global boards overview at /boards", () => {
+  it("renders global workspace progress, attention, and milestones at /boards", () => {
     render(
       <QueryClientProvider client={queryClient}>
         <MemoryRouter initialEntries={["/boards"]}>
@@ -82,7 +109,12 @@ describe("BoardsSidebarContent", () => {
     );
 
     expect(screen.getByText("Sprint 1")).toBeInTheDocument();
-    expect(screen.getByText("1 Boards available")).toBeInTheDocument();
+    expect(screen.getByText("Workspace Progress")).toBeInTheDocument();
+    expect(screen.getByText("50% Completed")).toBeInTheDocument();
+    expect(screen.getByText("1/2 Tasks")).toBeInTheDocument();
+    expect(screen.getByText("Global Attention")).toBeInTheDocument();
+    expect(screen.getByText("Active Milestones")).toBeInTheDocument();
+    expect(screen.getByText("v1.0")).toBeInTheDocument();
   });
 
   it("renders active board progress, columns, and categories at /boards/:boardId", () => {

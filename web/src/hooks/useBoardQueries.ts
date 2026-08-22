@@ -13,6 +13,7 @@ export const boardKeys = {
   lists: () => [...boardKeys.all, "list"] as const,
   list: (parent: string) => [...boardKeys.lists(), parent] as const,
   cards: (boardId: string, state?: State) => [...boardKeys.all, "cards", boardId, state ?? State.NORMAL] as const,
+  allCards: (state?: State) => [...boardKeys.all, "all-cards", state ?? State.NORMAL] as const,
 };
 
 // boardIdFromName extracts the board id from a "users/{user}/boards/{board}" name.
@@ -175,6 +176,32 @@ export function useBoardCards(boardId: string, options?: { state?: State; enable
       return memos;
     },
     enabled: (options?.enabled ?? true) && !!boardId,
+  });
+}
+
+// useAllBoardCards lists all memos on any board across the entire workspace.
+export function useAllBoardCards(options?: { state?: State; enabled?: boolean }) {
+  const state = options?.state;
+  return useQuery({
+    queryKey: boardKeys.allCards(state),
+    queryFn: async () => {
+      const memos: Memo[] = [];
+      let pageToken = "";
+      do {
+        const response = await memoServiceClient.listMemos(
+          create(ListMemosRequestSchema, {
+            filter: "has_kanban",
+            pageToken,
+            pageSize: 200,
+            state: state ?? State.NORMAL,
+          } as Record<string, unknown>),
+        );
+        memos.push(...response.memos);
+        pageToken = response.nextPageToken;
+      } while (pageToken);
+      return memos;
+    },
+    enabled: options?.enabled ?? true,
   });
 }
 

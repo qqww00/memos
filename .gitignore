@@ -23,4 +23,3 @@ dist/
 # symlink back to the workspace.
 .pnpm-store/
 memos_prod.*
-*.md

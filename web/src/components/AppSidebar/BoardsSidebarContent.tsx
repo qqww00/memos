@@ -1,16 +1,24 @@
-import { AlertCircleIcon, CheckCircle2Icon, ClockIcon, KanbanIcon, LayersIcon, MoreHorizontalIcon, PlusIcon, XIcon } from "lucide-react";
+import { AlertCircleIcon, CheckCircle2Icon, ClockIcon, KanbanIcon, MoreHorizontalIcon, PlusIcon, XIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { matchPath, useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import { CreateBoardDialog, DeleteBoardDialog } from "@/components/Boards";
-import { getCardCategories, getCategoryColor } from "@/components/Boards/cardUtils";
+import { getCardCategories, getCardMilestone, getCategoryColor, getMilestoneColor } from "@/components/Boards/cardUtils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
 import { useAppSidebar } from "@/contexts/AppSidebarContext";
-import { boardIdFromName, useBoardCards, useBoards, useCreateBoard, useDeleteBoard, useUpdateBoard } from "@/hooks/useBoardQueries";
+import {
+  boardIdFromName,
+  useAllBoardCards,
+  useBoardCards,
+  useBoards,
+  useCreateBoard,
+  useDeleteBoard,
+  useUpdateBoard,
+} from "@/hooks/useBoardQueries";
 import { handleError } from "@/lib/error";
 import { cn } from "@/lib/utils";
 import { ROUTES } from "@/router/routes";
@@ -246,19 +254,215 @@ const ActiveBoardCategories = ({ boardId }: { boardId: string }) => {
 
 const GlobalBoardsOverview = ({ boards }: { boards: Board[] }) => {
   const t = useTranslate();
+  const navigate = useNavigate();
+  const { setMobileOpen } = useAppSidebar();
+  const { data: allCards = [] } = useAllBoardCards({ state: State.NORMAL });
+
+  // Calculate statistics across all boards
+  const totalCards = allCards.length;
+  const closedCards = allCards.filter((c) => c.kanban?.isClosed).length;
+  const completionRate = totalCards > 0 ? Math.round((closedCards / totalCards) * 100) : 0;
+
+  const nowSec = Math.floor(Date.now() / 1000);
+  const todayEndSec = Math.floor(new Date().setHours(23, 59, 59, 999) / 1000);
+
+  const overdueCards = useMemo(() => {
+    return allCards.filter((c) => {
+      if (c.kanban?.isClosed) return false;
+      const due = c.kanban?.dueTime ? Number(c.kanban.dueTime.seconds) : 0;
+      return due > 0 && due < nowSec;
+    });
+  }, [allCards, nowSec]);
+
+  const dueTodayCards = useMemo(() => {
+    return allCards.filter((c) => {
+      if (c.kanban?.isClosed) return false;
+      const due = c.kanban?.dueTime ? Number(c.kanban.dueTime.seconds) : 0;
+      return due >= nowSec && due <= todayEndSec;
+    });
+  }, [allCards, nowSec, todayEndSec]);
+
+  // Aggregate active milestones across all boards
+  const activeMilestones = useMemo(() => {
+    const map = new Map<string, { name: string; color: string; total: number; closed: number; boardId: string; targetDueSec?: number }>();
+
+    for (const card of allCards) {
+      const milestone = getCardMilestone(card.kanban);
+      if (!milestone) continue;
+
+      const existing = map.get(milestone) || {
+        name: milestone,
+        color: getMilestoneColor(milestone),
+        total: 0,
+        closed: 0,
+        boardId: card.kanban?.boardId || "",
+      };
+
+      existing.total += 1;
+      if (card.kanban?.isClosed) {
+        existing.closed += 1;
+      }
+      if (card.kanban?.boardId) {
+        existing.boardId = card.kanban.boardId;
+      }
+      const due = card.kanban?.dueTime ? Number(card.kanban.dueTime.seconds) : 0;
+      if (due > 0 && (!existing.targetDueSec || due < existing.targetDueSec)) {
+        existing.targetDueSec = due;
+      }
+
+      map.set(milestone, existing);
+    }
+
+    return Array.from(map.values()).sort((a, b) => b.total - a.total);
+  }, [allCards]);
+
+  // Top categories across all boards
+  const topCategories = useMemo(() => {
+    const counts = new Map<string, number>();
+    for (const card of allCards) {
+      for (const cat of getCardCategories(card.kanban)) {
+        counts.set(cat, (counts.get(cat) ?? 0) + 1);
+      }
+    }
+    return Array.from(counts.entries())
+      .map(([name, count]) => ({
+        name,
+        count,
+        color: getCategoryColor(name),
+      }))
+      .sort((a, b) => b.count - a.count)
+      .slice(0, 6);
+  }, [allCards]);
+
+  const handleNavigateToAlert = (cardsList: typeof allCards, filterType: "overdue" | "today") => {
+    if (cardsList.length === 0) return;
+    const targetBoardId = cardsList[0].kanban?.boardId || (boards[0] ? boardIdFromName(boards[0].name) : "");
+    if (targetBoardId) {
+      navigate(`/boards/${targetBoardId}?due=${filterType}`);
+      setMobileOpen(false);
+    }
+  };
+
+  const handleNavigateToMilestone = (boardId: string, milestoneName: string) => {
+    const targetBoardId = boardId || (boards[0] ? boardIdFromName(boards[0].name) : "");
+    if (targetBoardId) {
+      navigate(`/boards/${targetBoardId}?milestone=${encodeURIComponent(milestoneName)}`);
+      setMobileOpen(false);
+    }
+  };
 
   return (
-    <SidebarSection label={t("boards.overview") || "Overview"}>
-      <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card/60 p-3 shadow-2xs">
-        <div className="flex items-center gap-2 text-xs text-muted-foreground">
-          <LayersIcon className="size-4 text-primary" />
-          <span>{boards.length} Boards available</span>
+    <div className="flex flex-col gap-3">
+      {/* 1. Global Workspace Progress */}
+      <SidebarSection label="Workspace Progress">
+        <div className="flex flex-col gap-2 rounded-lg border border-border/60 bg-card/60 p-2.5 shadow-2xs">
+          <div className="flex items-center justify-between text-xs">
+            <span className="font-medium text-foreground">{completionRate}% Completed</span>
+            <span className="text-muted-foreground tabular-nums">
+              {closedCards}/{totalCards} Tasks
+            </span>
+          </div>
+          <div className="h-1.5 w-full overflow-hidden rounded-full bg-secondary/80">
+            <div className="h-full rounded-full bg-primary transition-all duration-300 ease-out" style={{ width: `${completionRate}%` }} />
+          </div>
+          <div className="flex items-center justify-between text-[11px] text-muted-foreground pt-0.5">
+            <span>
+              {boards.length} Active {boards.length === 1 ? "Board" : "Boards"}
+            </span>
+            <span>{totalCards - closedCards} In Flight</span>
+          </div>
         </div>
-        <p className="text-xs text-muted-foreground/80 leading-relaxed">
-          Select a board above to view progress, columns breakdown, deadlines, and filter by categories.
-        </p>
-      </div>
-    </SidebarSection>
+      </SidebarSection>
+
+      {/* 2. Global Attention & Deadlines */}
+      <SidebarSection label="Global Attention">
+        <SidebarRow
+          icon={AlertCircleIcon}
+          label={t("boards.overdue") || "Overdue Tasks"}
+          count={overdueCards.length}
+          className={overdueCards.length > 0 ? "text-destructive font-medium" : undefined}
+          onClick={() => handleNavigateToAlert(overdueCards, "overdue")}
+        />
+        <SidebarRow
+          icon={ClockIcon}
+          label={t("boards.due-today") || "Due Today"}
+          count={dueTodayCards.length}
+          onClick={() => handleNavigateToAlert(dueTodayCards, "today")}
+        />
+        <SidebarRow
+          icon={CheckCircle2Icon}
+          label={t("boards.completed") || "Completed Tasks"}
+          count={closedCards}
+          onClick={() => {
+            if (boards[0]) {
+              const bId = boardIdFromName(boards[0].name);
+              navigate(`/boards/${bId}?status=completed`);
+              setMobileOpen(false);
+            }
+          }}
+        />
+      </SidebarSection>
+
+      {/* 3. Active Milestones Tracker */}
+      {activeMilestones.length > 0 && (
+        <SidebarSection label="Active Milestones">
+          <div className="flex flex-col gap-1">
+            {activeMilestones.map((m) => {
+              const pct = m.total > 0 ? Math.round((m.closed / m.total) * 100) : 0;
+              return (
+                <button
+                  key={m.name}
+                  type="button"
+                  onClick={() => handleNavigateToMilestone(m.boardId, m.name)}
+                  className="flex flex-col gap-1 rounded-md px-2 py-1.5 text-xs text-left transition-colors hover:bg-sidebar-accent/60 cursor-pointer group"
+                >
+                  <div className="flex items-center justify-between gap-1.5">
+                    <div className="flex items-center gap-1.5 min-w-0">
+                      <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: m.color }} />
+                      <span className="font-medium text-foreground truncate group-hover:text-primary transition-colors">{m.name}</span>
+                    </div>
+                    <span className="text-[10px] text-muted-foreground tabular-nums shrink-0 font-mono">
+                      {m.closed}/{m.total} ({pct}%)
+                    </span>
+                  </div>
+                  <div className="h-1 w-full overflow-hidden rounded-full bg-muted/60">
+                    <div
+                      className="h-full rounded-full transition-all duration-300"
+                      style={{
+                        width: `${pct}%`,
+                        backgroundColor: pct === 100 ? "#10b981" : m.color,
+                      }}
+                    />
+                  </div>
+                </button>
+              );
+            })}
+          </div>
+        </SidebarSection>
+      )}
+
+      {/* 4. Top Categories Across Workspace */}
+      {topCategories.length > 0 && (
+        <SidebarSection label="Top Categories">
+          <div className="flex flex-wrap gap-1 px-1">
+            {topCategories.map((item) => (
+              <span
+                key={item.name}
+                className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-medium"
+                style={{
+                  backgroundColor: `${item.color}15`,
+                  color: item.color,
+                  border: `1px solid ${item.color}35`,
+                }}
+              >
+                <span>{item.name}</span>
+                <span className="text-[10px] opacity-75">({item.count})</span>
+              </span>
+            ))}
+          </div>
+        </SidebarSection>
+      )}
+    </div>
   );
 };
 

@@ -501,54 +501,47 @@ const GlobalNavigation = () => {
 
   const items: GlobalNavItem[] = currentUser
     ? [
-        {
-          id: "boards",
-          label: t("common.boards"),
-          path: ROUTES.BOARDS,
-          icon: KanbanIcon,
-          active: location.pathname === ROUTES.BOARDS || location.pathname.startsWith("/boards/"),
-        },
-        {
-          id: "snippets",
-          label: "Snippets",
-          path: ROUTES.SNIPPETS,
-          icon: Code2Icon,
-          active: location.pathname === ROUTES.SNIPPETS,
-        },
-        {
-          id: "attachments",
-          label: t("common.attachments"),
-          path: ROUTES.ATTACHMENTS,
-          icon: PaperclipIcon,
-          active: location.pathname === ROUTES.ATTACHMENTS,
-        },
-        {
-          id: "archived",
-          label: t("common.archived"),
-          path: ROUTES.ARCHIVED,
-          icon: ArchiveIcon,
-          active: location.pathname === ROUTES.ARCHIVED,
-        },
-        {
-          id: "inbox",
-          label: t("common.inbox"),
-          path: ROUTES.INBOX,
-          icon: BellIcon,
-          active: location.pathname === ROUTES.INBOX,
-          count: unreadCount,
-        },
-      ]
+      {
+        id: "boards",
+        label: t("common.boards"),
+        path: ROUTES.BOARDS,
+        icon: KanbanIcon,
+        active: location.pathname === ROUTES.BOARDS || location.pathname.startsWith("/boards/"),
+      },
+      {
+        id: "snippets",
+        label: "Snippets",
+        path: ROUTES.SNIPPETS,
+        icon: Code2Icon,
+        active: location.pathname === ROUTES.SNIPPETS,
+      },
+      {
+        id: "attachments",
+        label: t("common.attachments"),
+        path: ROUTES.ATTACHMENTS,
+        icon: PaperclipIcon,
+        active: location.pathname === ROUTES.ATTACHMENTS,
+      },
+      {
+        id: "inbox",
+        label: t("common.inbox"),
+        path: ROUTES.INBOX,
+        icon: BellIcon,
+        active: location.pathname === ROUTES.INBOX,
+        count: unreadCount,
+      },
+    ]
     : [
-        {
-          id: "explore",
-          label: t("common.explore"),
-          path: ROUTES.EXPLORE,
-          icon: EarthIcon,
-          active: routeKind === "explore" || routeKind === "profile" || routeKind === "memo",
-          alwaysExpanded: true,
-        },
-        { id: "about", label: t("common.about"), path: ROUTES.ABOUT, icon: InfoIcon, active: location.pathname === ROUTES.ABOUT },
-      ];
+      {
+        id: "explore",
+        label: t("common.explore"),
+        path: ROUTES.EXPLORE,
+        icon: EarthIcon,
+        active: routeKind === "explore" || routeKind === "profile" || routeKind === "memo",
+        alwaysExpanded: true,
+      },
+      { id: "about", label: t("common.about"), path: ROUTES.ABOUT, icon: InfoIcon, active: location.pathname === ROUTES.ABOUT },
+    ];
 
   const scopeMenuContent = (
     <DropdownMenuContent align="start" sideOffset={4} className="flex w-36 flex-col gap-0.5">

@@ -422,7 +422,9 @@ type Kanban struct {
 	// Whether this card is marked as closed/completed on the board.
 	IsClosed *bool `protobuf:"varint,7,opt,name=is_closed,json=isClosed,proto3,oneof" json:"is_closed,omitempty"`
 	// Multiple category labels for this card on the board.
-	Categories    []string `protobuf:"bytes,8,rep,name=categories,proto3" json:"categories,omitempty"`
+	Categories []string `protobuf:"bytes,8,rep,name=categories,proto3" json:"categories,omitempty"`
+	// Optional milestone label for this card on the board.
+	Milestone     *string `protobuf:"bytes,9,opt,name=milestone,proto3,oneof" json:"milestone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -511,6 +513,13 @@ func (x *Kanban) GetCategories() []string {
 		return x.Categories
 	}
 	return nil
+}
+
+func (x *Kanban) GetMilestone() string {
+	if x != nil && x.Milestone != nil {
+		return *x.Milestone
+	}
+	return ""
 }
 
 type Location struct {
@@ -2472,7 +2481,7 @@ const file_api_v1_memo_service_proto_rawDesc = "" +
 	"\x11memos.api.v1/Memo\x12\fmemos/{memo}\x1a\x04name*\x05memos2\x04memoB\t\n" +
 	"\a_parentB\v\n" +
 	"\t_locationB\t\n" +
-	"\a_kanbanJ\x04\b\x06\x10\aR\fdisplay_time\"\x95\x03\n" +
+	"\a_kanbanJ\x04\b\x06\x10\aR\fdisplay_time\"\xcb\x03\n" +
 	"\x06Kanban\x12\x1e\n" +
 	"\bboard_id\x18\x01 \x01(\tB\x03\xe0A\x02R\aboardId\x12 \n" +
 	"\tcolumn_id\x18\x02 \x01(\tB\x03\xe0A\x02R\bcolumnId\x12\x1f\n" +
@@ -2483,12 +2492,15 @@ const file_api_v1_memo_service_proto_rawDesc = "" +
 	"\tis_closed\x18\a \x01(\bB\x03\xe0A\x01H\x03R\bisClosed\x88\x01\x01\x12#\n" +
 	"\n" +
 	"categories\x18\b \x03(\tB\x03\xe0A\x01R\n" +
-	"categoriesB\v\n" +
+	"categories\x12&\n" +
+	"\tmilestone\x18\t \x01(\tB\x03\xe0A\x01H\x04R\tmilestone\x88\x01\x01B\v\n" +
 	"\t_categoryB\x15\n" +
 	"\x13_category_color_hexB\v\n" +
 	"\t_due_timeB\f\n" +
 	"\n" +
-	"_is_closed\"u\n" +
+	"_is_closedB\f\n" +
+	"\n" +
+	"_milestone\"u\n" +
 	"\bLocation\x12%\n" +
 	"\vplaceholder\x18\x01 \x01(\tB\x03\xe0A\x01R\vplaceholder\x12\x1f\n" +
 	"\blatitude\x18\x02 \x01(\x01B\x03\xe0A\x01R\blatitude\x12!\n" +

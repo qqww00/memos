@@ -5,6 +5,7 @@ import {
   ArrowRightIcon,
   BellIcon,
   ChevronDownIcon,
+  Code2Icon,
   EarthIcon,
   FileAudioIcon,
   FileTextIcon,
@@ -506,6 +507,13 @@ const GlobalNavigation = () => {
           path: ROUTES.BOARDS,
           icon: KanbanIcon,
           active: location.pathname === ROUTES.BOARDS || location.pathname.startsWith("/boards/"),
+        },
+        {
+          id: "snippets",
+          label: "Snippets",
+          path: ROUTES.SNIPPETS,
+          icon: Code2Icon,
+          active: location.pathname === ROUTES.SNIPPETS,
         },
         {
           id: "attachments",

@@ -247,7 +247,9 @@ type MemoPayload_KanbanPayload struct {
 	// Whether the card is closed.
 	IsClosed *bool `protobuf:"varint,7,opt,name=is_closed,json=isClosed,proto3,oneof" json:"is_closed,omitempty"`
 	// Multiple category labels.
-	Categories    []string `protobuf:"bytes,8,rep,name=categories,proto3" json:"categories,omitempty"`
+	Categories []string `protobuf:"bytes,8,rep,name=categories,proto3" json:"categories,omitempty"`
+	// The card milestone name.
+	Milestone     *string `protobuf:"bytes,9,opt,name=milestone,proto3,oneof" json:"milestone,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -338,11 +340,18 @@ func (x *MemoPayload_KanbanPayload) GetCategories() []string {
 	return nil
 }
 
+func (x *MemoPayload_KanbanPayload) GetMilestone() string {
+	if x != nil && x.Milestone != nil {
+		return *x.Milestone
+	}
+	return ""
+}
+
 var File_store_memo_proto protoreflect.FileDescriptor
 
 const file_store_memo_proto_rawDesc = "" +
 	"\n" +
-	"\x10store/memo.proto\x12\vmemos.store\x1a\x1fgoogle/protobuf/timestamp.proto\"\xed\x06\n" +
+	"\x10store/memo.proto\x12\vmemos.store\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9e\a\n" +
 	"\vMemoPayload\x12=\n" +
 	"\bproperty\x18\x01 \x01(\v2!.memos.store.MemoPayload.PropertyR\bproperty\x12=\n" +
 	"\blocation\x18\x02 \x01(\v2!.memos.store.MemoPayload.LocationR\blocation\x12\x12\n" +
@@ -357,7 +366,7 @@ const file_store_memo_proto_rawDesc = "" +
 	"\bLocation\x12 \n" +
 	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\x12\x1a\n" +
 	"\blatitude\x18\x02 \x01(\x01R\blatitude\x12\x1c\n" +
-	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x1a\xf4\x02\n" +
+	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x1a\xa5\x03\n" +
 	"\rKanbanPayload\x12\x19\n" +
 	"\bboard_id\x18\x01 \x01(\tR\aboardId\x12\x1b\n" +
 	"\tcolumn_id\x18\x02 \x01(\tR\bcolumnId\x12\x1a\n" +
@@ -368,12 +377,15 @@ const file_store_memo_proto_rawDesc = "" +
 	"\tis_closed\x18\a \x01(\bH\x03R\bisClosed\x88\x01\x01\x12\x1e\n" +
 	"\n" +
 	"categories\x18\b \x03(\tR\n" +
-	"categoriesB\v\n" +
+	"categories\x12!\n" +
+	"\tmilestone\x18\t \x01(\tH\x04R\tmilestone\x88\x01\x01B\v\n" +
 	"\t_categoryB\x15\n" +
 	"\x13_category_color_hexB\v\n" +
 	"\t_due_timeB\f\n" +
 	"\n" +
-	"_is_closedB\x94\x01\n" +
+	"_is_closedB\f\n" +
+	"\n" +
+	"_milestoneB\x94\x01\n" +
 	"\x0fcom.memos.storeB\tMemoProtoP\x01Z)github.com/usememos/memos/proto/gen/store\xa2\x02\x03MSX\xaa\x02\vMemos.Store\xca\x02\vMemos\\Store\xe2\x02\x17Memos\\Store\\GPBMetadata\xea\x02\fMemos::Storeb\x06proto3"
 
 var (

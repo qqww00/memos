@@ -304,6 +304,9 @@ message Kanban {
 
   // Multiple category labels for this card on the board.
   repeated string categories = 8 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional milestone label for this card on the board.
+  optional string milestone = 9 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message Location {

@@ -360,6 +360,7 @@ func convertKanbanFromStore(kanban *storepb.MemoPayload_KanbanPayload) *v1pb.Kan
 		DueTime:          kanban.DueTime,
 		IsClosed:         kanban.IsClosed,
 		Categories:       kanban.Categories,
+		Milestone:        kanban.Milestone,
 	}
 }
 
@@ -376,6 +377,7 @@ func convertKanbanToStore(kanban *v1pb.Kanban) *storepb.MemoPayload_KanbanPayloa
 		DueTime:          kanban.DueTime,
 		IsClosed:         kanban.IsClosed,
 		Categories:       kanban.Categories,
+		Milestone:        kanban.Milestone,
 	}
 }
 

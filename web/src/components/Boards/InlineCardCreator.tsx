@@ -1,4 +1,4 @@
-import { CalendarIcon, CheckIcon, FileCode2Icon, GlobeIcon, LockIcon, PlusIcon, TagIcon, UsersIcon, XIcon } from "lucide-react";
+import { CalendarIcon, CheckIcon, FileCode2Icon, GlobeIcon, LockIcon, PlusIcon, TagIcon, TargetIcon, UsersIcon, XIcon } from "lucide-react";
 import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -14,9 +14,10 @@ import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
 import { useBoardCards, useCreateBoardMemo } from "@/hooks/useBoardQueries";
+import { cn } from "@/lib/utils";
 import { Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
-import { CATEGORY_PALETTE, getCardCategories, getCategoryColor } from "./cardUtils";
+import { CATEGORY_PALETTE, getCardCategories, getCategoryColor, getMilestoneColor } from "./cardUtils";
 import { ENGINEERING_TEMPLATES, type EngineeringTemplate } from "./engineeringTemplates";
 
 interface InlineCardCreatorProps {
@@ -32,6 +33,8 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [newCatInput, setNewCatInput] = useState("");
   const [newCatColor, setNewCatColor] = useState(CATEGORY_PALETTE[0].value);
+  const [selectedMilestone, setSelectedMilestone] = useState("");
+  const [newMilestoneInput, setNewMilestoneInput] = useState("");
   const [dueDate, setDueDate] = useState("");
   const [visibility, setVisibility] = useState<Visibility>(Visibility.PRIVATE);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
@@ -45,6 +48,16 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
       }
     }
     return Array.from(set);
+  }, [boardCards]);
+
+  const availableBoardMilestones = useMemo(() => {
+    const set = new Set<string>();
+    for (const card of boardCards) {
+      if (card.kanban?.milestone?.trim()) {
+        set.add(card.kanban.milestone.trim());
+      }
+    }
+    return Array.from(set).sort();
   }, [boardCards]);
 
   const createBoardMemo = useCreateBoardMemo(boardId);
@@ -93,10 +106,12 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
         categories: selectedCategories,
         category: selectedCategories[0] || undefined,
         categoryColorHex: selectedCategories[0] ? newCatColor : undefined,
+        milestone: selectedMilestone || undefined,
         dueTime: dueTimestamp,
       });
       setContent("");
       setSelectedCategories([]);
+      setSelectedMilestone("");
       toast.success("Memo created");
       onClose();
     } catch {
@@ -149,9 +164,26 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
         className="resize-none border-none p-0 text-sm shadow-none focus-visible:ring-0 bg-transparent placeholder:text-muted-foreground/60"
       />
 
-      {/* Selected categories tags preview */}
-      {selectedCategories.length > 0 && (
+      {/* Selected milestone & categories tags preview */}
+      {(selectedCategories.length > 0 || selectedMilestone) && (
         <div className="flex flex-wrap gap-1 items-center">
+          {selectedMilestone && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[11px] font-semibold"
+              style={{
+                backgroundColor: `${getMilestoneColor(selectedMilestone)}20`,
+                color: getMilestoneColor(selectedMilestone),
+                border: `1px solid ${getMilestoneColor(selectedMilestone)}50`,
+              }}
+            >
+              <TargetIcon className="size-2.5" />
+              <span>{selectedMilestone}</span>
+              <button type="button" onClick={() => setSelectedMilestone("")} className="hover:opacity-75 transition-opacity cursor-pointer">
+                <XIcon className="size-2.5" />
+              </button>
+            </span>
+          )}
+
           {selectedCategories.map((cat) => {
             const color = getCategoryColor(cat);
             return (
@@ -174,8 +206,83 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
         </div>
       )}
 
-      {/* Category and Due Date options */}
+      {/* Category, Milestone and Due Date options */}
       <div className="flex flex-wrap items-center gap-1.5 pt-1 border-t border-border/40 text-xs">
+        {/* Milestone Popover */}
+        <Popover>
+          <PopoverTrigger
+            render={
+              <Button
+                variant="outline"
+                size="sm"
+                className={cn(
+                  "h-6 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground",
+                  selectedMilestone && "border-primary/60 text-primary bg-primary/5 font-semibold",
+                )}
+              >
+                <TargetIcon className="size-3" />
+                <span>{selectedMilestone ? selectedMilestone : "Milestone"}</span>
+              </Button>
+            }
+          />
+          <PopoverContent align="start" className="w-64 p-3 space-y-2.5">
+            <div className="text-xs font-semibold text-foreground">Card Milestone</div>
+
+            {availableBoardMilestones.length > 0 && (
+              <div className="space-y-1">
+                <div className="text-[11px] text-muted-foreground">Board milestones:</div>
+                <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                  {availableBoardMilestones.map((m) => {
+                    const isSelected = selectedMilestone === m;
+                    const color = getMilestoneColor(m);
+                    return (
+                      <button
+                        key={m}
+                        type="button"
+                        onClick={() => setSelectedMilestone(isSelected ? "" : m)}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors cursor-pointer"
+                        style={{
+                          backgroundColor: isSelected ? color : `${color}15`,
+                          color: isSelected ? "#ffffff" : color,
+                          border: `1px solid ${color}40`,
+                        }}
+                      >
+                        {isSelected && <CheckIcon className="size-3" />}
+                        <span>{m}</span>
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            <div className="space-y-1.5 pt-1 border-t border-border/40">
+              <div className="text-[11px] text-muted-foreground">Custom milestone:</div>
+              <div className="flex items-center gap-1.5">
+                <Input
+                  value={newMilestoneInput}
+                  onChange={(e) => setNewMilestoneInput(e.target.value)}
+                  placeholder="e.g. v1.0, Sprint 24..."
+                  className="h-7 text-xs flex-1"
+                />
+                <Button
+                  type="button"
+                  size="sm"
+                  variant="secondary"
+                  className="h-7 px-2 text-xs"
+                  disabled={!newMilestoneInput.trim()}
+                  onClick={() => {
+                    setSelectedMilestone(newMilestoneInput.trim());
+                    setNewMilestoneInput("");
+                  }}
+                >
+                  <CheckIcon className="size-3" />
+                </Button>
+              </div>
+            </div>
+          </PopoverContent>
+        </Popover>
+
         {/* Category Popover */}
         <Popover>
           <PopoverTrigger

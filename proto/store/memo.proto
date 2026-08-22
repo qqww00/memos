@@ -50,5 +50,7 @@ message MemoPayload {
     optional bool is_closed = 7;
     // Multiple category labels.
     repeated string categories = 8;
+    // The card milestone name.
+    optional string milestone = 9;
   }
 }

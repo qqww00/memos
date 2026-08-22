@@ -3313,6 +3313,9 @@ components:
                     items:
                         type: string
                     description: Multiple category labels for this card on the board.
+                milestone:
+                    type: string
+                    description: Optional milestone label for this card on the board.
         LinkMetadata:
             type: object
             properties:

@@ -9,6 +9,17 @@ export const CATEGORY_PALETTE = [
   { label: "Rose", value: "#f43f5e" },
 ];
 
+export const MILESTONE_PALETTE = [
+  { label: "Indigo", value: "#6366f1" },
+  { label: "Violet", value: "#8b5cf6" },
+  { label: "Teal", value: "#14b8a6" },
+  { label: "Sky", value: "#0ea5e9" },
+  { label: "Fuchsia", value: "#d946ef" },
+  { label: "Orange", value: "#f97316" },
+  { label: "Pink", value: "#ec4899" },
+  { label: "Emerald", value: "#10b981" },
+];
+
 /**
  * Derives a consistent category badge color.
  */
@@ -21,6 +32,27 @@ export function getCategoryColor(categoryName: string, overrideColor?: string): 
   }
   const index = Math.abs(hash) % CATEGORY_PALETTE.length;
   return CATEGORY_PALETTE[index]?.value || "#64748b";
+}
+
+/**
+ * Derives a consistent milestone badge color.
+ */
+export function getMilestoneColor(milestoneName: string): string {
+  let hash = 0;
+  for (let i = 0; i < milestoneName.length; i++) {
+    hash = (hash << 5) - hash + milestoneName.charCodeAt(i);
+    hash |= 0;
+  }
+  const index = Math.abs(hash) % MILESTONE_PALETTE.length;
+  return MILESTONE_PALETTE[index]?.value || "#6366f1";
+}
+
+/**
+ * Extracts normalized milestone label from a memo kanban payload.
+ */
+export function getCardMilestone(kanban?: { milestone?: string }): string | undefined {
+  if (!kanban?.milestone?.trim()) return undefined;
+  return kanban.milestone.trim();
 }
 
 /**

@@ -11,12 +11,25 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove, horizontalListSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { ArrowLeftIcon, CalendarIcon, CheckIcon, FilterIcon, KanbanIcon, PlusIcon, RotateCcwIcon, TagIcon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  CalendarIcon,
+  CheckIcon,
+  FilterIcon,
+  KanbanIcon,
+  PlusIcon,
+  RocketIcon,
+  RotateCcwIcon,
+  TagIcon,
+  TargetIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AddMemoToBoardDialog, BOARD_COLUMN_COLORS, KanbanCard, KanbanColumn, MemoDetailDialog } from "@/components/Boards";
-import { getCardCategories, getCategoryColor } from "@/components/Boards/cardUtils";
+import { getCardCategories, getCardMilestone, getCategoryColor, getMilestoneColor } from "@/components/Boards/cardUtils";
+import { MilestonesRoadmapView } from "@/components/Boards/MilestonesRoadmapView";
+import { Badge } from "@/components/ui/badge";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -46,13 +59,24 @@ export const BoardDetail = () => {
   const navigate = useNavigate();
   const { boardId = "" } = useParams();
   const [searchParams, setSearchParams] = useSearchParams();
+  const [activeView, setActiveView] = useState<"kanban" | "milestones">("kanban");
 
   // Filters state synchronized via URL search parameters
   const filterStatus = (searchParams.get("status") as "all" | "active" | "completed" | "archived") || "all";
   const filterCategory = searchParams.get("category");
+  const filterMilestone = searchParams.get("milestone");
   const filterDue = searchParams.get("due");
   const dueDateFrom = searchParams.get("dueFrom") || "";
   const dueDateTo = searchParams.get("dueTo") || "";
+
+  const setFilterMilestone = (milestone: string | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!milestone) next.delete("milestone");
+      else next.set("milestone", milestone);
+      return next;
+    });
+  };
 
   const setFilterStatus = (status: "all" | "active" | "completed" | "archived") => {
     setSearchParams((prev) => {
@@ -111,6 +135,35 @@ export const BoardDetail = () => {
     return Array.from(set);
   }, [cards]);
 
+  // Extract unique milestones across cards for filtering & milestone tracking
+  const allMilestones = useMemo(() => {
+    const set = new Set<string>();
+    for (const card of cards) {
+      const m = getCardMilestone(card.kanban);
+      if (m) {
+        set.add(m);
+      }
+    }
+    return Array.from(set).sort();
+  }, [cards]);
+
+  // Active milestone summary
+  const activeMilestoneSummary = useMemo(() => {
+    if (!filterMilestone) return null;
+    const milestoneCards = cards.filter((c) => getCardMilestone(c.kanban) === filterMilestone);
+    const total = milestoneCards.length;
+    const closedCount = milestoneCards.filter((c) => c.kanban?.isClosed).length;
+    const percent = total > 0 ? Math.round((closedCount / total) * 100) : 0;
+    return {
+      name: filterMilestone,
+      total,
+      closedCount,
+      inProgressCount: total - closedCount,
+      percent,
+      color: getMilestoneColor(filterMilestone),
+    };
+  }, [cards, filterMilestone]);
+
   // Dialog states
   const [addColumnDialogOpen, setAddColumnDialogOpen] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
@@ -136,7 +189,12 @@ export const BoardDetail = () => {
   );
 
   const hasActiveFilters =
-    filterStatus !== "all" || filterCategory !== null || Boolean(filterDue) || Boolean(dueDateFrom) || Boolean(dueDateTo);
+    filterStatus !== "all" ||
+    filterCategory !== null ||
+    filterMilestone !== null ||
+    Boolean(filterDue) ||
+    Boolean(dueDateFrom) ||
+    Boolean(dueDateTo);
 
   const handleClearAllFilters = () => {
     setSearchParams(new URLSearchParams());
@@ -163,7 +221,13 @@ export const BoardDetail = () => {
         if (!cats.includes(filterCategory)) return false;
       }
 
-      // 3. Due Preset Filter (Overdue / Today)
+      // 3. Milestone Filter
+      if (filterMilestone) {
+        const m = getCardMilestone(memo.kanban);
+        if (m !== filterMilestone) return false;
+      }
+
+      // 4. Due Preset Filter (Overdue / Today)
       if (filterDue === "overdue") {
         if (memo.kanban?.isClosed) return false;
         const dueSec = memo.kanban?.dueTime ? Number(memo.kanban.dueTime.seconds) : 0;
@@ -174,7 +238,7 @@ export const BoardDetail = () => {
         if (dueSec < nowSec || dueSec > todayEndSec) return false;
       }
 
-      // 4. Due Date Range Filter
+      // 5. Due Date Range Filter
       if (fromSec !== null || toSec !== null) {
         const dueSec = memo.kanban?.dueTime ? Number(memo.kanban.dueTime.seconds) : null;
         if (dueSec === null) return false;
@@ -186,7 +250,7 @@ export const BoardDetail = () => {
     });
 
     return groupCardsByColumn(filteredCards, columnIds);
-  }, [cards, board?.columns, filterStatus, filterCategory, filterDue, dueDateFrom, dueDateTo]);
+  }, [cards, board?.columns, filterStatus, filterCategory, filterMilestone, filterDue, dueDateFrom, dueDateTo]);
 
   if (isBoardsLoading || isCardsLoading) {
     return (
@@ -436,10 +500,82 @@ export const BoardDetail = () => {
             </div>
             <h1 className="text-lg font-bold text-foreground">{board.title}</h1>
           </div>
+
+          {/* View Switcher Tabs */}
+          <div className="flex items-center rounded-lg border border-border/80 bg-muted/40 p-0.5 ml-2 hidden md:flex">
+            <button
+              type="button"
+              onClick={() => setActiveView("kanban")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                activeView === "kanban" ? "bg-background text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <KanbanIcon className="size-3.5" />
+              <span>Kanban</span>
+            </button>
+            <button
+              type="button"
+              onClick={() => setActiveView("milestones")}
+              className={cn(
+                "flex items-center gap-1.5 rounded-md px-2.5 py-1 text-xs font-medium transition-colors cursor-pointer",
+                activeView === "milestones" ? "bg-background text-foreground shadow-2xs" : "text-muted-foreground hover:text-foreground",
+              )}
+            >
+              <RocketIcon className="size-3.5" />
+              <span>Milestones Roadmap</span>
+            </button>
+          </div>
         </div>
 
         {/* Filters & Actions Toolbar */}
         <div className="flex flex-wrap items-center gap-2">
+          {/* Milestone Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "gap-1.5 text-xs text-muted-foreground hover:text-foreground",
+                    filterMilestone && "border-primary/60 text-primary bg-primary/5 font-semibold",
+                  )}
+                >
+                  <TargetIcon className="size-3.5" />
+                  <span className="truncate max-w-[100px]">{filterMilestone ? filterMilestone : "Milestone"}</span>
+                  {filterMilestone && (
+                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: getMilestoneColor(filterMilestone) }} />
+                  )}
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" size="sm" className="w-48 max-h-64 overflow-y-auto">
+              <DropdownMenuItem onClick={() => setFilterMilestone(null)}>All milestones</DropdownMenuItem>
+              {allMilestones.length === 0 ? (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">No milestones assigned</div>
+              ) : (
+                allMilestones.map((m) => {
+                  const color = getMilestoneColor(m);
+                  const isSelected = filterMilestone === m;
+                  return (
+                    <DropdownMenuItem
+                      key={m}
+                      onClick={() => setFilterMilestone(isSelected ? null : m)}
+                      className="flex items-center justify-between gap-1"
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="truncate">{m}</span>
+                      </div>
+                      {isSelected && <CheckIcon className="size-3.5 text-primary shrink-0" />}
+                    </DropdownMenuItem>
+                  );
+                })
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
           {/* 1. Status Filter Dropdown */}
           <DropdownMenu>
             <DropdownMenuTrigger
@@ -685,66 +821,109 @@ export const BoardDetail = () => {
         </div>
       </div>
 
-      {/* Horizontal Board Columns Container */}
-      <div className="flex flex-1 items-start gap-4 overflow-x-auto p-4 sm:p-6 [scrollbar-width:thin]">
-        <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
-            {board.columns.map((column, idx) => (
-              <KanbanColumn
-                key={column.id}
-                boardId={boardId}
-                column={column}
-                cards={columnCardsMap.get(column.id) || []}
-                canMoveLeft={idx > 0}
-                canMoveRight={idx < board.columns.length - 1}
-                canDelete={board.columns.length > 1}
-                onRename={(title) => handleRenameColumn(column.id, title)}
-                onRecolor={(color) => handleRecolorColumn(column.id, color)}
-                onSetWipLimit={(limit) => handleSetWipLimit(column.id, limit)}
-                onMoveLeft={() => handleMoveColumn(idx, "left")}
-                onMoveRight={() => handleMoveColumn(idx, "right")}
-                onDelete={() => handleDeleteColumn(column.id)}
-                onAddMemo={() => handleOpenAddMemo(column.id)}
-                onSelectCard={(memo) => setSelectedMemoName(memo.name)}
-                parentPage={`/boards/${boardId}`}
-              />
-            ))}
-          </SortableContext>
-
-          {/* New Column Button Placeholder */}
-          <div className="flex w-80 shrink-0 flex-col">
-            <Button
-              variant="outline"
-              className="h-12 w-full justify-start rounded-xl border-dashed text-muted-foreground hover:border-primary hover:text-primary"
-              onClick={() => setAddColumnDialogOpen(true)}
-            >
-              <PlusIcon className="mr-2 size-4" />
-              {t("boards.add-column")}
-            </Button>
+      {/* Milestone Progress Banner (when milestone filter active in Kanban) */}
+      {filterMilestone && activeMilestoneSummary && activeView === "kanban" && (
+        <div className="mx-4 sm:mx-6 mt-3 flex items-center justify-between gap-4 rounded-xl border border-primary/30 bg-primary/5 px-4 py-2.5 shadow-2xs">
+          <div className="flex items-center gap-3 min-w-0 flex-1">
+            <span className="size-3 rounded-full shrink-0" style={{ backgroundColor: activeMilestoneSummary.color }} />
+            <div className="min-w-0 flex-1 space-y-1">
+              <div className="flex items-center gap-2">
+                <h4 className="text-xs font-bold text-foreground truncate">Milestone: {activeMilestoneSummary.name}</h4>
+                <Badge variant="secondary" className="h-4 px-1.5 text-[10px]">
+                  {activeMilestoneSummary.closedCount}/{activeMilestoneSummary.total} Tasks Completed ({activeMilestoneSummary.percent}%)
+                </Badge>
+              </div>
+              <div className="h-1.5 w-full max-w-sm overflow-hidden rounded-full bg-primary/20">
+                <div
+                  className="h-full bg-primary rounded-full transition-all duration-300"
+                  style={{ width: `${activeMilestoneSummary.percent}%` }}
+                />
+              </div>
+            </div>
           </div>
+          <Button
+            variant="ghost"
+            size="sm"
+            className="h-7 text-xs text-muted-foreground hover:text-foreground"
+            onClick={() => setFilterMilestone(null)}
+          >
+            Clear Filter
+          </Button>
+        </div>
+      )}
 
-          <DragOverlay dropAnimation={null}>
-            {activeColumn ? (
-              <KanbanColumn
-                column={activeColumn}
-                cards={columnCardsMap.get(activeColumn.id) || []}
-                canMoveLeft={false}
-                canMoveRight={false}
-                canDelete={false}
-                onRename={() => {}}
-                onRecolor={() => {}}
-                onMoveLeft={() => {}}
-                onMoveRight={() => {}}
-                onDelete={() => {}}
-                onAddMemo={() => {}}
-                isOverlay
-              />
-            ) : activeCard ? (
-              <KanbanCard memo={activeCard} columnId={activeCard.kanban?.columnId || ""} isOverlay />
-            ) : null}
-          </DragOverlay>
-        </DndContext>
-      </div>
+      {/* Main View Area: Either Milestones Roadmap OR Horizontal Kanban Columns */}
+      {activeView === "milestones" ? (
+        <MilestonesRoadmapView
+          board={board}
+          cards={cards}
+          onSelectCard={(memo) => setSelectedMemoName(memo.name)}
+          onFilterMilestone={(m) => {
+            setFilterMilestone(m);
+            setActiveView("kanban");
+          }}
+        />
+      ) : (
+        <div className="flex flex-1 items-start gap-4 overflow-x-auto p-4 sm:p-6 [scrollbar-width:thin]">
+          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+            <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
+              {board.columns.map((column, idx) => (
+                <KanbanColumn
+                  key={column.id}
+                  boardId={boardId}
+                  column={column}
+                  cards={columnCardsMap.get(column.id) || []}
+                  canMoveLeft={idx > 0}
+                  canMoveRight={idx < board.columns.length - 1}
+                  canDelete={board.columns.length > 1}
+                  onRename={(title) => handleRenameColumn(column.id, title)}
+                  onRecolor={(color) => handleRecolorColumn(column.id, color)}
+                  onSetWipLimit={(limit) => handleSetWipLimit(column.id, limit)}
+                  onMoveLeft={() => handleMoveColumn(idx, "left")}
+                  onMoveRight={() => handleMoveColumn(idx, "right")}
+                  onDelete={() => handleDeleteColumn(column.id)}
+                  onAddMemo={() => handleOpenAddMemo(column.id)}
+                  onSelectCard={(memo) => setSelectedMemoName(memo.name)}
+                  parentPage={`/boards/${boardId}`}
+                />
+              ))}
+            </SortableContext>
+
+            {/* New Column Button Placeholder */}
+            <div className="flex w-80 shrink-0 flex-col">
+              <Button
+                variant="outline"
+                className="h-12 w-full justify-start rounded-xl border-dashed text-muted-foreground hover:border-primary hover:text-primary"
+                onClick={() => setAddColumnDialogOpen(true)}
+              >
+                <PlusIcon className="mr-2 size-4" />
+                {t("boards.add-column")}
+              </Button>
+            </div>
+
+            <DragOverlay dropAnimation={null}>
+              {activeColumn ? (
+                <KanbanColumn
+                  column={activeColumn}
+                  cards={columnCardsMap.get(activeColumn.id) || []}
+                  canMoveLeft={false}
+                  canMoveRight={false}
+                  canDelete={false}
+                  onRename={() => {}}
+                  onRecolor={() => {}}
+                  onMoveLeft={() => {}}
+                  onMoveRight={() => {}}
+                  onDelete={() => {}}
+                  onAddMemo={() => {}}
+                  isOverlay
+                />
+              ) : activeCard ? (
+                <KanbanCard memo={activeCard} columnId={activeCard.kanban?.columnId || ""} isOverlay />
+              ) : null}
+            </DragOverlay>
+          </DndContext>
+        </div>
+      )}
 
       {/* Add Column Dialog */}
       <Dialog open={addColumnDialogOpen} onOpenChange={setAddColumnDialogOpen}>

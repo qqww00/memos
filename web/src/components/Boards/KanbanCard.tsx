@@ -15,6 +15,7 @@ import {
   MessageSquareIcon,
   MoreHorizontalIcon,
   PaperclipIcon,
+  TargetIcon,
   Trash2Icon,
   UsersIcon,
 } from "lucide-react";
@@ -31,7 +32,9 @@ import { useTranslate } from "@/utils/i18n";
 import {
   computeDeadlineProgress,
   getCardCategories,
+  getCardMilestone,
   getCategoryColor,
+  getMilestoneColor,
   parseCardContent,
   parseTaskLists,
   toggleTaskListItem,
@@ -72,6 +75,7 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
   const isClosed = Boolean(memo.kanban?.isClosed);
   const isArchived = memo.state === State.ARCHIVED;
   const categories = getCardCategories(memo.kanban);
+  const milestone = getCardMilestone(memo.kanban);
 
   const createSeconds = memo.createTime ? Number(memo.createTime.seconds) : undefined;
   const dueSeconds = memo.kanban?.dueTime ? Number(memo.kanban.dueTime.seconds) : undefined;
@@ -108,6 +112,7 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
           category: memo.kanban?.category,
           categoryColorHex: memo.kanban?.categoryColorHex,
           categories: memo.kanban?.categories ?? [],
+          milestone: memo.kanban?.milestone,
           dueTime: memo.kanban?.dueTime,
           isClosed: !isClosed,
         }),
@@ -191,7 +196,7 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
         isClosed && "bg-muted/30 border-dashed border-border/70",
       )}
     >
-      {/* Header bar: Category badge + Checkbox + Grip + Menu */}
+      {/* Header bar: Category badge + Feature badge + Checkbox + Grip + Menu */}
       <div className="flex items-center justify-between gap-1.5">
         <div className="flex items-center gap-1.5 min-w-0 flex-1 flex-wrap">
           <button
@@ -206,6 +211,21 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
               <CircleIcon className="size-4 text-muted-foreground/60 hover:text-foreground" />
             )}
           </button>
+
+          {milestone && (
+            <span
+              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold truncate max-w-[130px] shadow-2xs"
+              style={{
+                backgroundColor: `${getMilestoneColor(milestone)}20`,
+                color: getMilestoneColor(milestone),
+                border: `1px solid ${getMilestoneColor(milestone)}50`,
+              }}
+              title={`Milestone: ${milestone}`}
+            >
+              <TargetIcon className="size-2.5 shrink-0" />
+              <span className="truncate">{milestone}</span>
+            </span>
+          )}
 
           {categories.map((cat) => {
             const color = getCategoryColor(cat, memo.kanban?.categoryColorHex);

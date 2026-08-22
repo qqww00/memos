@@ -12,3 +12,4 @@ export * from "./InlineCardCreator";
 export * from "./KanbanCard";
 export * from "./KanbanColumn";
 export * from "./MemoDetailDialog";
+export * from "./MilestonesRoadmapView";

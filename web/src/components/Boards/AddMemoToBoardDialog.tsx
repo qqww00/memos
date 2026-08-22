@@ -1,6 +1,18 @@
 import { create } from "@bufbuild/protobuf";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarIcon, CheckIcon, FileCode2Icon, GlobeIcon, LockIcon, PlusIcon, SearchIcon, TagIcon, UsersIcon, XIcon } from "lucide-react";
+import {
+  CalendarIcon,
+  CheckIcon,
+  FileCode2Icon,
+  GlobeIcon,
+  LockIcon,
+  PlusIcon,
+  SearchIcon,
+  TagIcon,
+  TargetIcon,
+  UsersIcon,
+  XIcon,
+} from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
@@ -21,10 +33,11 @@ import { Textarea } from "@/components/ui/textarea";
 import { memoServiceClient } from "@/connect";
 import { useBoardCards, useCreateBoardMemo, useUpdateMemoKanban } from "@/hooks/useBoardQueries";
 import useCurrentUser from "@/hooks/useCurrentUser";
+import { cn } from "@/lib/utils";
 import type { BoardColumn } from "@/types/proto/api/v1/board_service_pb";
 import { KanbanSchema, ListMemosRequestSchema, type Memo, Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
-import { CATEGORY_PALETTE, getCardCategories, getCategoryColor } from "./cardUtils";
+import { CATEGORY_PALETTE, getCardCategories, getCategoryColor, getMilestoneColor } from "./cardUtils";
 import { ENGINEERING_TEMPLATES, type EngineeringTemplate } from "./engineeringTemplates";
 
 interface AddMemoToBoardDialogProps {
@@ -53,6 +66,8 @@ export const AddMemoToBoardDialog = ({
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [newCatInput, setNewCatInput] = useState("");
   const [newCatColor, setNewCatColor] = useState(CATEGORY_PALETTE[0].value);
+  const [selectedMilestone, setSelectedMilestone] = useState("");
+  const [newMilestoneInput, setNewMilestoneInput] = useState("");
   const [newDueDate, setNewDueDate] = useState("");
   const [newVisibility, setNewVisibility] = useState<Visibility>(Visibility.PRIVATE);
 
@@ -65,6 +80,16 @@ export const AddMemoToBoardDialog = ({
       }
     }
     return Array.from(set);
+  }, [boardCards]);
+
+  const availableBoardMilestones = useMemo(() => {
+    const set = new Set<string>();
+    for (const card of boardCards) {
+      if (card.kanban?.milestone?.trim()) {
+        set.add(card.kanban.milestone.trim());
+      }
+    }
+    return Array.from(set).sort();
   }, [boardCards]);
 
   const updateMemoKanban = useUpdateMemoKanban();
@@ -138,10 +163,12 @@ export const AddMemoToBoardDialog = ({
         categories: selectedCategories,
         category: selectedCategories[0] || undefined,
         categoryColorHex: selectedCategories[0] ? newCatColor : undefined,
+        milestone: selectedMilestone || undefined,
         dueTime: dueTimestamp,
       });
       setNewContent("");
       setSelectedCategories([]);
+      setSelectedMilestone("");
       setNewDueDate("");
       toast.success("Memo created");
       onOpenChange(false);
@@ -197,14 +224,34 @@ export const AddMemoToBoardDialog = ({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="default" className="max-h-[85vh] flex flex-col">
-        <DialogHeader>
-          <DialogTitle>{t("boards.add-memo-to-board")}</DialogTitle>
+      <DialogContent className="max-w-xl p-0 overflow-hidden gap-0">
+        <DialogHeader className="px-6 pt-5 pb-3 border-b border-border/80">
+          <DialogTitle className="text-base font-semibold">{t("boards.add-memo")}</DialogTitle>
         </DialogHeader>
 
+        {/* Column selection row */}
+        <div className="flex items-center gap-3 px-6 py-2.5 bg-muted/20 border-b border-border/60 text-xs">
+          <span className="text-muted-foreground font-medium">Add to column:</span>
+          <Select value={currentColumnId} onValueChange={setSelectedColumnId}>
+            <SelectTrigger className="h-7 w-48 text-xs bg-card">
+              <SelectValue placeholder="Select column" />
+            </SelectTrigger>
+            <SelectContent>
+              {columns.map((col) => (
+                <SelectItem key={col.id} value={col.id}>
+                  <div className="flex items-center gap-2">
+                    <span className="size-2 rounded-full" style={{ backgroundColor: col.colorHex || "#64748b" }} />
+                    <span>{col.title}</span>
+                  </div>
+                </SelectItem>
+              ))}
+            </SelectContent>
+          </Select>
+        </div>
+
         <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as "create" | "search")} className="w-full">
-          <div className="flex items-center justify-between gap-3 border-b border-border/60 pb-2">
-            <TabsList className="grid grid-cols-2 w-56">
+          <div className="px-6 pt-2">
+            <TabsList className="grid w-full grid-cols-2 h-8">
               <TabsTrigger value="create" className="text-xs">
                 {t("common.create")}
               </TabsTrigger>
@@ -212,46 +259,40 @@ export const AddMemoToBoardDialog = ({
                 {t("boards.add-existing-memo")}
               </TabsTrigger>
             </TabsList>
-
-            <div className="w-48 shrink-0">
-              <Select value={currentColumnId} onValueChange={setSelectedColumnId}>
-                <SelectTrigger className="h-8 text-xs">
-                  <SelectValue placeholder={t("boards.select-column")} />
-                </SelectTrigger>
-                <SelectContent>
-                  {columns.map((col) => (
-                    <SelectItem key={col.id} value={col.id} className="text-xs">
-                      <div className="flex items-center gap-2">
-                        <span className="size-2 rounded-full" style={{ backgroundColor: col.colorHex || "#64748b" }} />
-                        <span className="truncate">{col.title}</span>
-                      </div>
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
           </div>
 
-          {activeTab === "create" && (
-            <div className="mt-3 space-y-3">
+          {/* TAB 1: Create New Memo */}
+          <div className={activeTab === "create" ? "block px-6 py-4 space-y-3" : "hidden"}>
+            <div className="space-y-1.5">
               <Textarea
-                autoFocus
+                placeholder="Enter card title or description..."
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
-                placeholder="Write a memo or task..."
                 rows={4}
-                className="resize-none text-sm"
-                onKeyDown={(e) => {
-                  if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
-                    e.preventDefault();
-                    void handleCreateMemo();
-                  }
-                }}
+                className="resize-none text-xs leading-relaxed"
+                autoFocus
               />
 
-              {/* Selected Categories Tags */}
-              {selectedCategories.length > 0 && (
-                <div className="flex flex-wrap gap-1.5 items-center">
+              {/* Selected Categories & Milestone Badges */}
+              {(selectedCategories.length > 0 || selectedMilestone) && (
+                <div className="flex flex-wrap gap-1 items-center pt-1">
+                  {selectedMilestone && (
+                    <span
+                      className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-semibold"
+                      style={{
+                        backgroundColor: `${getMilestoneColor(selectedMilestone)}20`,
+                        color: getMilestoneColor(selectedMilestone),
+                        border: `1px solid ${getMilestoneColor(selectedMilestone)}50`,
+                      }}
+                    >
+                      <TargetIcon className="size-3" />
+                      <span>{selectedMilestone}</span>
+                      <button type="button" onClick={() => setSelectedMilestone("")} className="hover:opacity-75 cursor-pointer ml-0.5">
+                        <XIcon className="size-3" />
+                      </button>
+                    </span>
+                  )}
+
                   {selectedCategories.map((cat) => {
                     const color = getCategoryColor(cat);
                     return (
@@ -274,8 +315,84 @@ export const AddMemoToBoardDialog = ({
                 </div>
               )}
 
-              {/* Category & Due date options */}
+              {/* Category, Milestone & Due date options */}
               <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40 text-xs">
+                {/* Milestone Popover */}
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className={cn(
+                          "h-7 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground",
+                          selectedMilestone && "border-primary/60 text-primary bg-primary/5 font-semibold",
+                        )}
+                      >
+                        <TargetIcon className="size-3.5" />
+                        <span>{selectedMilestone ? selectedMilestone : "Milestone"}</span>
+                      </Button>
+                    }
+                  />
+                  <PopoverContent align="start" className="w-64 p-3 space-y-2.5">
+                    <div className="text-xs font-semibold text-foreground">Card Milestone</div>
+
+                    {availableBoardMilestones.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-[11px] text-muted-foreground">Board milestones:</div>
+                        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                          {availableBoardMilestones.map((m) => {
+                            const isSelected = selectedMilestone === m;
+                            const color = getMilestoneColor(m);
+                            return (
+                              <button
+                                key={m}
+                                type="button"
+                                onClick={() => setSelectedMilestone(isSelected ? "" : m)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors cursor-pointer"
+                                style={{
+                                  backgroundColor: isSelected ? color : `${color}15`,
+                                  color: isSelected ? "#ffffff" : color,
+                                  border: `1px solid ${color}40`,
+                                }}
+                              >
+                                {isSelected && <CheckIcon className="size-3" />}
+                                <span>{m}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="space-y-1.5 pt-1 border-t border-border/40">
+                      <div className="text-[11px] text-muted-foreground">Custom milestone:</div>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          value={newMilestoneInput}
+                          onChange={(e) => setNewMilestoneInput(e.target.value)}
+                          placeholder="e.g. v1.0, Sprint 24..."
+                          className="h-7 text-xs flex-1"
+                        />
+                        <Button
+                          type="button"
+                          size="sm"
+                          variant="secondary"
+                          className="h-7 px-2 text-xs"
+                          disabled={!newMilestoneInput.trim()}
+                          onClick={() => {
+                            setSelectedMilestone(newMilestoneInput.trim());
+                            setNewMilestoneInput("");
+                          }}
+                        >
+                          <CheckIcon className="size-3" />
+                        </Button>
+                      </div>
+                    </div>
+                  </PopoverContent>
+                </Popover>
+
+                {/* Category Popover */}
                 <Popover>
                   <PopoverTrigger
                     render={
@@ -462,57 +579,55 @@ export const AddMemoToBoardDialog = ({
                 </div>
               </div>
             </div>
-          )}
+          </div>
 
-          {activeTab === "search" && (
-            <div className="mt-3 space-y-2">
-              <div className="relative">
-                <SearchIcon className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
-                <Input
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  placeholder={t("boards.search-memos")}
-                  className="pl-8 h-8 text-xs"
-                />
-              </div>
-
-              <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px] max-h-[320px]">
-                {isLoading && (
-                  <div className="space-y-2 py-4">
-                    {[1, 2, 3].map((i) => (
-                      <div key={i} className="h-14 animate-pulse rounded-lg border border-border/60 bg-muted/20" />
-                    ))}
-                  </div>
-                )}
-
-                {!isLoading && memos.length === 0 && (
-                  <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
-                    {t("boards.no-memos-found")}
-                  </div>
-                )}
-
-                {!isLoading &&
-                  memos.map((memo) => (
-                    <div
-                      key={memo.name}
-                      className="group flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card p-2.5 transition-colors hover:bg-accent/40"
-                    >
-                      <p className="line-clamp-2 text-xs text-foreground flex-1">{memo.content || "(Empty memo)"}</p>
-                      <Button
-                        size="sm"
-                        variant="secondary"
-                        className="h-7 shrink-0 text-xs"
-                        onClick={() => handleAddMemo(memo)}
-                        disabled={updateMemoKanban.isPending}
-                      >
-                        <PlusIcon className="mr-1 size-3" />
-                        {t("boards.add-memo")}
-                      </Button>
-                    </div>
-                  ))}
-              </div>
+          <div className={activeTab === "search" ? "block px-6 py-4 space-y-2" : "hidden"}>
+            <div className="relative">
+              <SearchIcon className="absolute left-2.5 top-1/2 size-4 -translate-y-1/2 text-muted-foreground" />
+              <Input
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder={t("boards.search-memos")}
+                className="pl-8 h-8 text-xs"
+              />
             </div>
-          )}
+
+            <div className="flex-1 overflow-y-auto space-y-2 pr-1 min-h-[160px] max-h-[320px]">
+              {isLoading && (
+                <div className="space-y-2 py-4">
+                  {[1, 2, 3].map((i) => (
+                    <div key={i} className="h-14 animate-pulse rounded-lg border border-border/60 bg-muted/20" />
+                  ))}
+                </div>
+              )}
+
+              {!isLoading && memos.length === 0 && (
+                <div className="flex flex-col items-center justify-center py-8 text-center text-sm text-muted-foreground">
+                  {t("boards.no-memos-found")}
+                </div>
+              )}
+
+              {!isLoading &&
+                memos.map((memo) => (
+                  <div
+                    key={memo.name}
+                    className="group flex items-center justify-between gap-3 rounded-lg border border-border/70 bg-card p-2.5 transition-colors hover:bg-accent/40"
+                  >
+                    <p className="line-clamp-2 text-xs text-foreground flex-1">{memo.content || "(Empty memo)"}</p>
+                    <Button
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 shrink-0 text-xs"
+                      onClick={() => handleAddMemo(memo)}
+                      disabled={updateMemoKanban.isPending}
+                    >
+                      <PlusIcon className="mr-1 size-3" />
+                      {t("boards.add-memo")}
+                    </Button>
+                  </div>
+                ))}
+            </div>
+          </div>
         </Tabs>
       </DialogContent>
     </Dialog>

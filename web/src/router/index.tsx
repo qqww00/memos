@@ -28,6 +28,7 @@ const Setting = lazyWithReload(() => import("@/pages/Setting"));
 const MemoViews = lazyWithReload(() => import("@/pages/MemoViews"));
 const Boards = lazyWithReload(() => import("@/pages/Boards"));
 const BoardDetail = lazyWithReload(() => import("@/pages/BoardDetail"));
+const Snippets = lazyWithReload(() => import("@/pages/Snippets"));
 const SignIn = lazyWithReload(() => import("@/pages/SignIn"));
 const SignUp = lazyWithReload(() => import("@/pages/SignUp"));
 const UserProfile = lazyWithReload(() => import("@/pages/UserProfile"));
@@ -96,6 +97,7 @@ export const routeConfig: RouteObject[] = [
                     children: [
                       { path: Routes.VIEWS, element: <MemoViews /> },
                       { path: Routes.BOARDS, element: <Boards /> },
+                      { path: Routes.SNIPPETS, element: <Snippets /> },
                     ],
                   },
                 ],

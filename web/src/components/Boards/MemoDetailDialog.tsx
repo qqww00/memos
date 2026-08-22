@@ -12,6 +12,7 @@ import {
   RotateCcwIcon,
   SaveIcon,
   TagIcon,
+  TargetIcon,
   XIcon,
 } from "lucide-react";
 import { useEffect, useMemo, useState } from "react";
@@ -29,7 +30,14 @@ import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
 import { KanbanSchema } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
-import { CATEGORY_PALETTE, computeDeadlineProgress, getCardCategories, getCategoryColor } from "./cardUtils";
+import {
+  CATEGORY_PALETTE,
+  computeDeadlineProgress,
+  getCardCategories,
+  getCardMilestone,
+  getCategoryColor,
+  getMilestoneColor,
+} from "./cardUtils";
 
 interface MemoDetailDialogProps {
   memoName: string | null;
@@ -62,19 +70,23 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     enabled: open && !!memoName,
   });
 
-  // Local draft states for board properties (Explicit Save, no auto-save)
+  const boardId = memo?.kanban?.boardId || "";
+  const { data: boardCards = [] } = useBoardCards(boardId, {
+    enabled: !!boardId && open,
+  });
+
+  // Local draft states for live editing
   const [isClosedDraft, setIsClosedDraft] = useState(false);
   const [categoriesDraft, setCategoriesDraft] = useState<string[]>([]);
-  const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
-  const [dueDateDraft, setDueDateDraft] = useState("");
+  const [milestoneDraft, setMilestoneDraft] = useState("");
+  const [newMilestoneInput, setNewMilestoneInput] = useState("");
   const [newCatInput, setNewCatInput] = useState("");
   const [newCatColor, setNewCatColor] = useState(CATEGORY_PALETTE[0].value);
+  const [categoryColorMap, setCategoryColorMap] = useState<Record<string, string>>({});
+  const [dueDateDraft, setDueDateDraft] = useState("");
   const [isSaving, setIsSaving] = useState(false);
 
-  const boardId = memo?.kanban?.boardId || "";
-  const { data: boardCards = [] } = useBoardCards(boardId, { enabled: !!boardId && open });
-
-  // Extract all unique categories and their colors across the board for reuse
+  // Extract all categories already used across this board
   const availableBoardCategories = useMemo(() => {
     const map = new Map<string, string>();
     for (const card of boardCards) {
@@ -91,12 +103,24 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     return Array.from(map.entries()).map(([name, color]) => ({ name, color }));
   }, [boardCards]);
 
+  // Extract all milestones across this board
+  const availableBoardMilestones = useMemo(() => {
+    const set = new Set<string>();
+    for (const card of boardCards) {
+      if (card.kanban?.milestone?.trim()) {
+        set.add(card.kanban.milestone.trim());
+      }
+    }
+    return Array.from(set).sort();
+  }, [boardCards]);
+
   // Sync draft states when memo changes
   useEffect(() => {
     if (!memo) return;
     setIsClosedDraft(Boolean(memo.kanban?.isClosed));
     const cats = getCardCategories(memo.kanban);
     setCategoriesDraft(cats);
+    setMilestoneDraft(getCardMilestone(memo.kanban) || "");
 
     const initialColors: Record<string, string> = {};
     for (const item of availableBoardCategories) {
@@ -136,6 +160,9 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     const origClosed = Boolean(memo.kanban.isClosed);
     if (isClosedDraft !== origClosed) return true;
 
+    const origMilestone = getCardMilestone(memo.kanban) || "";
+    if (milestoneDraft !== origMilestone) return true;
+
     const origCategories = getCardCategories(memo.kanban);
     if (origCategories.length !== categoriesDraft.length) return true;
     for (const c of categoriesDraft) {
@@ -152,7 +179,7 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     if (origDueSec !== draftDueSec) return true;
 
     return false;
-  }, [memo?.kanban, isClosedDraft, categoriesDraft, categoryColorMap, newCatColor, dueDateDraft]);
+  }, [memo?.kanban, isClosedDraft, milestoneDraft, categoriesDraft, categoryColorMap, newCatColor, dueDateDraft]);
 
   if (!memo) return null;
 
@@ -187,6 +214,7 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     setIsClosedDraft(Boolean(memo.kanban?.isClosed));
     const cats = getCardCategories(memo.kanban);
     setCategoriesDraft(cats);
+    setMilestoneDraft(getCardMilestone(memo.kanban) || "");
     const initialColors: Record<string, string> = {};
     for (const item of availableBoardCategories) {
       initialColors[item.name] = item.color;
@@ -234,6 +262,7 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
           categories: categoriesDraft,
           category: primaryCategory || undefined,
           categoryColorHex: primaryColor,
+          milestone: milestoneDraft || undefined,
           dueTime: dueTimestamp,
           isClosed: isClosedDraft,
         }),
@@ -479,6 +508,102 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
                       ))}
                     </div>
                   </form>
+                </div>
+
+                {/* Milestone Section */}
+                <div className="space-y-2.5 pt-2 border-t border-border/40">
+                  <div className="flex items-center justify-between">
+                    <span className="text-xs font-medium text-foreground flex items-center gap-1.5">
+                      <TargetIcon className="size-3.5 text-muted-foreground" />
+                      <span>Card Milestone</span>
+                    </span>
+                    {milestoneDraft && (
+                      <button
+                        type="button"
+                        onClick={() => setMilestoneDraft("")}
+                        className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                      >
+                        Clear
+                      </button>
+                    )}
+                  </div>
+
+                  {/* Active Milestone Badge */}
+                  {milestoneDraft && (
+                    <div className="flex items-center gap-1.5">
+                      <span
+                        className="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-md text-xs font-semibold shadow-2xs"
+                        style={{
+                          backgroundColor: `${getMilestoneColor(milestoneDraft)}20`,
+                          color: getMilestoneColor(milestoneDraft),
+                          border: `1px solid ${getMilestoneColor(milestoneDraft)}50`,
+                        }}
+                      >
+                        <TargetIcon className="size-3" />
+                        <span>{milestoneDraft}</span>
+                        <button
+                          type="button"
+                          onClick={() => setMilestoneDraft("")}
+                          className="hover:opacity-75 transition-opacity cursor-pointer ml-1"
+                        >
+                          <XIcon className="size-3" />
+                        </button>
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Board Milestones Suggestions */}
+                  {availableBoardMilestones.length > 0 && (
+                    <div className="space-y-1">
+                      <div className="text-[11px] text-muted-foreground">Board milestones:</div>
+                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                        {availableBoardMilestones.map((m) => {
+                          const isSelected = milestoneDraft === m;
+                          const color = getMilestoneColor(m);
+                          return (
+                            <button
+                              key={m}
+                              type="button"
+                              onClick={() => setMilestoneDraft(isSelected ? "" : m)}
+                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors cursor-pointer"
+                              style={{
+                                backgroundColor: isSelected ? color : `${color}15`,
+                                color: isSelected ? "#ffffff" : color,
+                                border: `1px solid ${color}40`,
+                              }}
+                            >
+                              {isSelected && <CheckIcon className="size-3" />}
+                              <span>{m}</span>
+                            </button>
+                          );
+                        })}
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Custom Milestone Input */}
+                  <div className="flex items-center gap-1.5">
+                    <Input
+                      value={newMilestoneInput}
+                      onChange={(e) => setNewMilestoneInput(e.target.value)}
+                      placeholder="e.g. v1.0, Sprint 24..."
+                      className="h-7 text-xs flex-1"
+                    />
+                    <Button
+                      type="button"
+                      size="sm"
+                      variant="secondary"
+                      className="h-7 px-2.5 text-xs"
+                      disabled={!newMilestoneInput.trim()}
+                      onClick={() => {
+                        setMilestoneDraft(newMilestoneInput.trim());
+                        setNewMilestoneInput("");
+                      }}
+                    >
+                      <PlusIcon className="size-3 mr-0.5" />
+                      Set
+                    </Button>
+                  </div>
                 </div>
 
                 {/* Due Date Section */}

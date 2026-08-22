@@ -1,8 +1,7 @@
 import { KanbanIcon, PlusIcon } from "lucide-react";
 import { useState } from "react";
 import toast from "react-hot-toast";
-import { BoardList, CreateBoardDialog } from "@/components/Boards";
-import ConfirmDialog from "@/components/ConfirmDialog";
+import { BoardList, CreateBoardDialog, DeleteBoardDialog } from "@/components/Boards";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -122,15 +121,11 @@ export const Boards = () => {
         </DialogContent>
       </Dialog>
 
-      <ConfirmDialog
-        open={!!deleteTarget}
+      <DeleteBoardDialog
+        board={deleteTarget}
         onOpenChange={(open) => !open && setDeleteTarget(undefined)}
-        title={t("boards.delete-confirm", { title: deleteTarget?.title ?? "" })}
-        description={t("boards.delete-confirm-description")}
-        confirmLabel={t("common.delete")}
-        cancelLabel={t("common.cancel")}
         onConfirm={handleDelete}
-        confirmVariant="destructive"
+        isPending={deleteBoard.isPending}
       />
     </div>
   );

@@ -1015,6 +1015,9 @@
     "due-today": "Due Today",
     "completed": "Completed",
     "categories": "Categories",
-    "overview": "Overview"
+    "overview": "Overview",
+    "delete-confirm-prompt": "Please type",
+    "delete-confirm-to-confirm": "to confirm.",
+    "delete-confirm-input-placeholder": "Enter board title"
   }
 }

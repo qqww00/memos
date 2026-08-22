@@ -87,6 +87,9 @@ message BoardColumn {
 
   // Optional hex color accent for the column, e.g. "#0969da".
   string color_hex = 3 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional maximum number of cards allowed in the column (WIP limit).
+  int32 wip_limit = 4 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message ListBoardsRequest {

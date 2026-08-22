@@ -61,6 +61,7 @@ func convertBoardFromStore(username string, board *storepb.BoardsUserSetting_Boa
 			Id:       column.GetId(),
 			Title:    column.GetTitle(),
 			ColorHex: column.GetColorHex(),
+			WipLimit: column.GetWipLimit(),
 		})
 	}
 	boardMessage := &v1pb.Board{
@@ -162,6 +163,7 @@ func validateBoardColumns(columns []*v1pb.BoardColumn) ([]*storepb.BoardsUserSet
 			Id:       id,
 			Title:    column.GetTitle(),
 			ColorHex: column.GetColorHex(),
+			WipLimit: column.GetWipLimit(),
 		})
 	}
 	return storeColumns, nil

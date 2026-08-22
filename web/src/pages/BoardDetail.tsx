@@ -115,6 +115,7 @@ export const BoardDetail = () => {
   const [addColumnDialogOpen, setAddColumnDialogOpen] = useState(false);
   const [newColumnTitle, setNewColumnTitle] = useState("");
   const [newColumnColor, setNewColumnColor] = useState<string>(BOARD_COLUMN_COLORS[0].value);
+  const [newColumnWipLimit, setNewColumnWipLimit] = useState("");
   const [addMemoDialogOpen, setAddMemoDialogOpen] = useState(false);
   const [addMemoColumnId, setAddMemoColumnId] = useState<string>("");
   const [selectedMemoName, setSelectedMemoName] = useState<string | null>(null);
@@ -368,6 +369,11 @@ export const BoardDetail = () => {
     void handleUpdateColumns(newColumns);
   };
 
+  const handleSetWipLimit = (columnId: string, wipLimit: number) => {
+    const newColumns = board.columns.map((col) => (col.id === columnId ? create(BoardColumnSchema, { ...col, wipLimit }) : col));
+    void handleUpdateColumns(newColumns);
+  };
+
   const handleMoveColumn = (index: number, direction: "left" | "right") => {
     const targetIndex = direction === "left" ? index - 1 : index + 1;
     if (targetIndex < 0 || targetIndex >= board.columns.length) return;
@@ -392,12 +398,17 @@ export const BoardDetail = () => {
     const trimmed = newColumnTitle.trim();
     if (!trimmed) return;
 
+    const parsedWip = Number.parseInt(newColumnWipLimit.trim(), 10);
+    const wipLimit = Number.isNaN(parsedWip) || parsedWip < 0 ? 0 : parsedWip;
+
     const newCol = create(BoardColumnSchema, {
       title: trimmed,
       colorHex: newColumnColor,
+      wipLimit,
     });
     void handleUpdateColumns([...board.columns, newCol]);
     setNewColumnTitle("");
+    setNewColumnWipLimit("");
     setAddColumnDialogOpen(false);
   };
 
@@ -689,6 +700,7 @@ export const BoardDetail = () => {
                 canDelete={board.columns.length > 1}
                 onRename={(title) => handleRenameColumn(column.id, title)}
                 onRecolor={(color) => handleRecolorColumn(column.id, color)}
+                onSetWipLimit={(limit) => handleSetWipLimit(column.id, limit)}
                 onMoveLeft={() => handleMoveColumn(idx, "left")}
                 onMoveRight={() => handleMoveColumn(idx, "right")}
                 onDelete={() => handleDeleteColumn(column.id)}
@@ -750,6 +762,20 @@ export const BoardDetail = () => {
                 value={newColumnTitle}
                 onChange={(e) => setNewColumnTitle(e.target.value)}
                 placeholder={t("boards.column-title")}
+              />
+            </div>
+
+            <div className="space-y-1.5">
+              <Label htmlFor="column-wip-limit">WIP Limit (optional)</Label>
+              <Input
+                id="column-wip-limit"
+                type="number"
+                min="0"
+                max="100"
+                value={newColumnWipLimit}
+                onChange={(e) => setNewColumnWipLimit(e.target.value)}
+                placeholder="e.g. 3 (0 = Unlimited)"
+                className="h-8 text-sm"
               />
             </div>
 

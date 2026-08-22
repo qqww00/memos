@@ -170,3 +170,80 @@ export function computeDeadlineProgress(createTimeSeconds?: number, dueTimeSecon
     colorClass,
   };
 }
+
+export interface TaskListItem {
+  index: number;
+  checked: boolean;
+  text: string;
+  line: string;
+}
+
+export interface TaskListSummary {
+  items: TaskListItem[];
+  total: number;
+  completed: number;
+  percent: number;
+}
+
+const TASK_LIST_REGEX = /^(\s*[-*+]\s+\[)([ xX])(\]\s+)(.*)$/;
+
+/**
+ * Extracts all task list checklist items (`- [ ]` / `- [x]`) from markdown content.
+ */
+export function parseTaskLists(content: string): TaskListSummary {
+  if (!content) {
+    return { items: [], total: 0, completed: 0, percent: 0 };
+  }
+
+  const lines = content.split("\n");
+  const items: TaskListItem[] = [];
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const match = line.match(TASK_LIST_REGEX);
+    if (match) {
+      const checked = match[2].toLowerCase() === "x";
+      const text = match[4].trim();
+      items.push({
+        index: items.length,
+        checked,
+        text,
+        line,
+      });
+    }
+  }
+
+  const total = items.length;
+  const completed = items.filter((item) => item.checked).length;
+  const percent = total > 0 ? Math.round((completed / total) * 100) : 0;
+
+  return {
+    items,
+    total,
+    completed,
+    percent,
+  };
+}
+
+/**
+ * Toggles a specific task list item checkbox in markdown content by its index.
+ */
+export function toggleTaskListItem(content: string, itemIndex: number, newChecked: boolean): string {
+  const lines = content.split("\n");
+  let currentTaskIdx = 0;
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i];
+    const match = line.match(TASK_LIST_REGEX);
+    if (match) {
+      if (currentTaskIdx === itemIndex) {
+        const replacement = `${match[1]}${newChecked ? "x" : " "}${match[3]}${match[4]}`;
+        lines[i] = replacement;
+        break;
+      }
+      currentTaskIdx++;
+    }
+  }
+
+  return lines.join("\n");
+}

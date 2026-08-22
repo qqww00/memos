@@ -147,13 +147,13 @@ function DropdownMenuLabel({
   className,
   inset,
   ...props
-}: DropdownMenuPrimitive.GroupLabel.Props & {
+}: React.ComponentProps<"div"> & {
   inset?: boolean;
 }) {
   const size = React.useContext(DropdownMenuSizeContext);
 
   return (
-    <DropdownMenuPrimitive.GroupLabel
+    <div
       data-slot="dropdown-menu-label"
       data-inset={inset}
       className={cn("px-2 font-medium", size === "sm" ? "py-1 text-ui data-[inset]:ps-7" : "py-1.5 text-sm data-[inset]:ps-8", className)}

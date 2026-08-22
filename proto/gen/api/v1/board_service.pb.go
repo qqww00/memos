@@ -116,7 +116,9 @@ type BoardColumn struct {
 	// The title of the column.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	// Optional hex color accent for the column, e.g. "#0969da".
-	ColorHex      string `protobuf:"bytes,3,opt,name=color_hex,json=colorHex,proto3" json:"color_hex,omitempty"`
+	ColorHex string `protobuf:"bytes,3,opt,name=color_hex,json=colorHex,proto3" json:"color_hex,omitempty"`
+	// Optional maximum number of cards allowed in the column (WIP limit).
+	WipLimit      int32 `protobuf:"varint,4,opt,name=wip_limit,json=wipLimit,proto3" json:"wip_limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -170,6 +172,13 @@ func (x *BoardColumn) GetColorHex() string {
 		return x.ColorHex
 	}
 	return ""
+}
+
+func (x *BoardColumn) GetWipLimit() int32 {
+	if x != nil {
+		return x.WipLimit
+	}
+	return 0
 }
 
 type ListBoardsRequest struct {
@@ -487,11 +496,12 @@ const file_api_v1_board_service_proto_rawDesc = "" +
 	"createTime\x12@\n" +
 	"\vupdate_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\n" +
 	"updateTime:C\xeaA@\n" +
-	"\x12memos.api.v1/Board\x12\x1busers/{user}/boards/{board}*\x06boards2\x05board\"_\n" +
+	"\x12memos.api.v1/Board\x12\x1busers/{user}/boards/{board}*\x06boards2\x05board\"\x81\x01\n" +
 	"\vBoardColumn\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\bR\x02id\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tB\x03\xe0A\x02R\x05title\x12 \n" +
-	"\tcolor_hex\x18\x03 \x01(\tB\x03\xe0A\x01R\bcolorHex\"G\n" +
+	"\tcolor_hex\x18\x03 \x01(\tB\x03\xe0A\x01R\bcolorHex\x12 \n" +
+	"\twip_limit\x18\x04 \x01(\x05B\x03\xe0A\x01R\bwipLimit\"G\n" +
 	"\x11ListBoardsRequest\x122\n" +
 	"\x06parent\x18\x01 \x01(\tB\x1a\xe0A\x02\xfaA\x14\x12\x12memos.api.v1/BoardR\x06parent\"A\n" +
 	"\x12ListBoardsResponse\x12+\n" +

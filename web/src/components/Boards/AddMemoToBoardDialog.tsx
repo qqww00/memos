@@ -1,11 +1,18 @@
 import { create } from "@bufbuild/protobuf";
 import { useQuery } from "@tanstack/react-query";
-import { CalendarIcon, CheckIcon, GlobeIcon, LockIcon, PlusIcon, SearchIcon, TagIcon, UsersIcon, XIcon } from "lucide-react";
+import { CalendarIcon, CheckIcon, FileCode2Icon, GlobeIcon, LockIcon, PlusIcon, SearchIcon, TagIcon, UsersIcon, XIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
@@ -18,6 +25,7 @@ import type { BoardColumn } from "@/types/proto/api/v1/board_service_pb";
 import { KanbanSchema, ListMemosRequestSchema, type Memo, Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import { CATEGORY_PALETTE, getCardCategories, getCategoryColor } from "./cardUtils";
+import { ENGINEERING_TEMPLATES, type EngineeringTemplate } from "./engineeringTemplates";
 
 interface AddMemoToBoardDialogProps {
   open: boolean;
@@ -95,6 +103,14 @@ export const AddMemoToBoardDialog = ({
       setSelectedCategories((prev) => [...prev, trimmed]);
     }
     setNewCatInput("");
+  };
+
+  const handleSelectTemplate = (tmpl: EngineeringTemplate) => {
+    setNewContent(tmpl.templateContent);
+    if (!selectedCategories.includes(tmpl.category)) {
+      setSelectedCategories((prev) => [...prev, tmpl.category]);
+    }
+    toast.success(`Loaded ${tmpl.category} template`);
   };
 
   const handleCreateMemo = async () => {
@@ -374,6 +390,39 @@ export const AddMemoToBoardDialog = ({
                     )}
                   </PopoverContent>
                 </Popover>
+
+                {/* Engineering Templates Dropdown */}
+                <DropdownMenu>
+                  <DropdownMenuTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <FileCode2Icon className="size-3.5 text-primary" />
+                        <span>Templates</span>
+                      </Button>
+                    }
+                  />
+                  <DropdownMenuContent align="start" className="w-64">
+                    <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">Engineering Templates</DropdownMenuLabel>
+                    <DropdownMenuSeparator />
+                    {ENGINEERING_TEMPLATES.map((tmpl) => (
+                      <DropdownMenuItem
+                        key={tmpl.id}
+                        onClick={() => handleSelectTemplate(tmpl)}
+                        className="flex flex-col items-start gap-0.5 cursor-pointer py-1.5"
+                      >
+                        <div className="flex items-center gap-1.5 font-medium text-xs text-foreground">
+                          <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: tmpl.categoryColorHex }} />
+                          <span>{tmpl.title}</span>
+                        </div>
+                        <span className="text-[10px] text-muted-foreground line-clamp-1">{tmpl.description}</span>
+                      </DropdownMenuItem>
+                    ))}
+                  </DropdownMenuContent>
+                </DropdownMenu>
               </div>
 
               <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">

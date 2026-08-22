@@ -18,7 +18,7 @@ interface CreateBoardDialogProps {
 export const CreateBoardDialog = ({ open, onOpenChange, onSubmit }: CreateBoardDialogProps) => {
   const t = useTranslate();
   const [title, setTitle] = useState("");
-  const [columns, setColumns] = useState<Array<{ id: string; title: string; colorHex: string }>>(() =>
+  const [columns, setColumns] = useState<Array<{ id: string; title: string; colorHex: string; wipLimit?: number }>>(() =>
     DEFAULT_BOARD_COLUMNS.map((col, idx) => ({ id: `col-${idx}`, title: col.title, colorHex: col.colorHex })),
   );
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -38,6 +38,12 @@ export const CreateBoardDialog = ({ open, onOpenChange, onSubmit }: CreateBoardD
     setColumns(columns.map((col, i) => (i === index ? { ...col, title: newTitle } : col)));
   };
 
+  const handleUpdateColumnWip = (index: number, wipLimitStr: string) => {
+    const parsed = Number.parseInt(wipLimitStr.trim(), 10);
+    const wipLimit = Number.isNaN(parsed) || parsed < 0 ? 0 : parsed;
+    setColumns(columns.map((col, i) => (i === index ? { ...col, wipLimit } : col)));
+  };
+
   const handleSubmit = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
     const trimmedTitle = title.trim();
@@ -45,7 +51,7 @@ export const CreateBoardDialog = ({ open, onOpenChange, onSubmit }: CreateBoardD
 
     const boardColumns = columns
       .filter((c) => c.title.trim())
-      .map((c) => create(BoardColumnSchema, { title: c.title.trim(), colorHex: c.colorHex }));
+      .map((c) => create(BoardColumnSchema, { title: c.title.trim(), colorHex: c.colorHex, wipLimit: c.wipLimit ?? 0 }));
 
     if (boardColumns.length === 0) return;
 
@@ -96,7 +102,17 @@ export const CreateBoardDialog = ({ open, onOpenChange, onSubmit }: CreateBoardD
                     value={col.title}
                     onChange={(e) => handleUpdateColumnTitle(idx, e.target.value)}
                     placeholder={t("boards.column-title")}
-                    className="h-8 text-sm"
+                    className="h-8 text-sm flex-1"
+                  />
+                  <Input
+                    type="number"
+                    min="0"
+                    max="100"
+                    value={col.wipLimit ? String(col.wipLimit) : ""}
+                    onChange={(e) => handleUpdateColumnWip(idx, e.target.value)}
+                    placeholder="WIP"
+                    title="Work-in-progress limit (0 = unlimited)"
+                    className="h-8 w-16 text-xs text-center"
                   />
                   <Button
                     type="button"

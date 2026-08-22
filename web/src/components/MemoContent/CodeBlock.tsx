@@ -37,6 +37,32 @@ export const CodeBlock = ({ children, className, node: _node, ...props }: CodeBl
   return <HighlightedCodeBlock key={`${language}\u0000${codeContent}`} codeContent={codeContent} language={language} />;
 };
 
+const LANGUAGE_LABELS: Record<string, string> = {
+  ts: "TypeScript",
+  tsx: "TypeScript (React)",
+  js: "JavaScript",
+  jsx: "JavaScript (React)",
+  go: "Go",
+  py: "Python",
+  python: "Python",
+  sh: "Bash",
+  bash: "Bash",
+  zsh: "Zsh",
+  sql: "SQL",
+  proto: "Protobuf",
+  protobuf: "Protobuf",
+  json: "JSON",
+  yaml: "YAML",
+  yml: "YAML",
+  md: "Markdown",
+  markdown: "Markdown",
+  html: "HTML",
+  css: "CSS",
+  rust: "Rust",
+  rs: "Rust",
+  dockerfile: "Dockerfile",
+};
+
 interface HighlightedCodeBlockProps {
   codeContent: string;
   language: string;
@@ -47,6 +73,9 @@ const HighlightedCodeBlock = ({ codeContent, language }: HighlightedCodeBlockPro
   const [copied, setCopied] = useState(false);
   const [highlightedCode, setHighlightedCode] = useState<string>();
   const renderedCode = highlightedCode ?? escapeHTML(codeContent);
+
+  const linesCount = codeContent.split("\n").length;
+  const displayLang = LANGUAGE_LABELS[language.toLowerCase()] || language || "text";
 
   const theme = getThemeWithFallback(userGeneralSetting?.theme);
   const resolvedTheme = resolveTheme(theme);
@@ -115,13 +144,18 @@ const HighlightedCodeBlock = ({ codeContent, language }: HighlightedCodeBlockPro
 
   return (
     <pre className="relative my-2 rounded-lg border border-border bg-muted/20 overflow-hidden">
-      {/* Header with language label and copy button */}
-      <div className="flex items-center justify-between px-2 py-1 border-b border-border bg-muted/30">
-        <span className="text-xs text-foreground select-none">{language || "text"}</span>
+      {/* Header with language label, line count, and copy button */}
+      <div className="flex items-center justify-between px-2.5 py-1 border-b border-border bg-muted/30">
+        <div className="flex items-center gap-2">
+          <span className="text-[11px] font-medium text-foreground select-none">{displayLang}</span>
+          <span className="text-[10px] text-muted-foreground/60 select-none">
+            {linesCount} {linesCount === 1 ? "line" : "lines"}
+          </span>
+        </div>
         <button
           onClick={handleCopy}
           className={cn(
-            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs",
+            "inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-xs cursor-pointer",
             "transition-colors duration-200",
             "hover:bg-accent active:scale-95",
             copied ? "text-primary" : "text-muted-foreground hover:text-foreground",

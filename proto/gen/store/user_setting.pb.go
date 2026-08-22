@@ -1141,7 +1141,9 @@ type BoardsUserSetting_BoardColumn struct {
 	// The title of the column.
 	Title string `protobuf:"bytes,2,opt,name=title,proto3" json:"title,omitempty"`
 	// Optional hex color accent for the column, e.g. "#0969da".
-	ColorHex      string `protobuf:"bytes,3,opt,name=color_hex,json=colorHex,proto3" json:"color_hex,omitempty"`
+	ColorHex string `protobuf:"bytes,3,opt,name=color_hex,json=colorHex,proto3" json:"color_hex,omitempty"`
+	// Optional maximum number of cards allowed in the column (WIP limit).
+	WipLimit      int32 `protobuf:"varint,4,opt,name=wip_limit,json=wipLimit,proto3" json:"wip_limit,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -1195,6 +1197,13 @@ func (x *BoardsUserSetting_BoardColumn) GetColorHex() string {
 		return x.ColorHex
 	}
 	return ""
+}
+
+func (x *BoardsUserSetting_BoardColumn) GetWipLimit() int32 {
+	if x != nil {
+		return x.WipLimit
+	}
+	return 0
 }
 
 var File_store_user_setting_proto protoreflect.FileDescriptor
@@ -1286,7 +1295,7 @@ const file_store_user_setting_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x10\n" +
 	"\x03url\x18\x03 \x01(\tR\x03url\x12%\n" +
-	"\x0esigning_secret\x18\x04 \x01(\tR\rsigningSecret\"\x8f\x03\n" +
+	"\x0esigning_secret\x18\x04 \x01(\tR\rsigningSecret\"\xac\x03\n" +
 	"\x11BoardsUserSetting\x12<\n" +
 	"\x06boards\x18\x01 \x03(\v2$.memos.store.BoardsUserSetting.BoardR\x06boards\x1a\xe9\x01\n" +
 	"\x05Board\x12\x0e\n" +
@@ -1296,11 +1305,12 @@ const file_store_user_setting_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1aP\n" +
+	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1am\n" +
 	"\vBoardColumn\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1b\n" +
-	"\tcolor_hex\x18\x03 \x01(\tR\bcolorHexB\x9b\x01\n" +
+	"\tcolor_hex\x18\x03 \x01(\tR\bcolorHex\x12\x1b\n" +
+	"\twip_limit\x18\x04 \x01(\x05R\bwipLimitB\x9b\x01\n" +
 	"\x0fcom.memos.storeB\x10UserSettingProtoP\x01Z)github.com/usememos/memos/proto/gen/store\xa2\x02\x03MSX\xaa\x02\vMemos.Store\xca\x02\vMemos\\Store\xe2\x02\x17Memos\\Store\\GPBMetadata\xea\x02\fMemos::Storeb\x06proto3"
 
 var (

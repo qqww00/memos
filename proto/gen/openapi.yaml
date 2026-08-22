@@ -2687,6 +2687,10 @@ components:
                 colorHex:
                     type: string
                     description: Optional hex color accent for the column, e.g. "#0969da".
+                wipLimit:
+                    type: integer
+                    description: Optional maximum number of cards allowed in the column (WIP limit).
+                    format: int32
         Color:
             type: object
             properties:

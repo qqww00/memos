@@ -21,6 +21,7 @@ interface KanbanColumnProps {
   isOverlay?: boolean;
   onRename: (title: string) => void;
   onRecolor: (colorHex: string) => void;
+  onSetWipLimit?: (wipLimit: number) => void;
   onMoveLeft: () => void;
   onMoveRight: () => void;
   onDelete: () => void;
@@ -39,6 +40,7 @@ export const KanbanColumn = ({
   isOverlay = false,
   onRename,
   onRecolor,
+  onSetWipLimit,
   onMoveLeft,
   onMoveRight,
   onDelete,
@@ -48,6 +50,8 @@ export const KanbanColumn = ({
 }: KanbanColumnProps) => {
   const t = useTranslate();
   const [isCreating, setIsCreating] = useState(false);
+
+  const isWipExceeded = Boolean(column.wipLimit && column.wipLimit > 0 && cards.length > column.wipLimit);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
     id: column.id,
@@ -73,7 +77,8 @@ export const KanbanColumn = ({
       ref={setNodeRef}
       style={style}
       className={cn(
-        "flex h-full w-80 shrink-0 flex-col rounded-xl border border-border/70 bg-muted/40 p-2.5",
+        "flex h-full w-80 shrink-0 flex-col rounded-xl border bg-muted/40 p-2.5 transition-colors",
+        isWipExceeded ? "border-destructive/40 bg-destructive/5" : "border-border/70",
         isDragging && "opacity-30 border-primary/50",
         isOverlay && "shadow-2xl ring-2 ring-primary/50 bg-muted z-50 opacity-95",
       )}
@@ -87,6 +92,7 @@ export const KanbanColumn = ({
         dragHandleProps={{ ...attributes, ...listeners }}
         onRename={onRename}
         onRecolor={onRecolor}
+        onSetWipLimit={onSetWipLimit}
         onMoveLeft={onMoveLeft}
         onMoveRight={onMoveRight}
         onDelete={onDelete}

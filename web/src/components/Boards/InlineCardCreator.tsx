@@ -1,8 +1,15 @@
-import { CalendarIcon, CheckIcon, GlobeIcon, LockIcon, PlusIcon, TagIcon, UsersIcon, XIcon } from "lucide-react";
+import { CalendarIcon, CheckIcon, FileCode2Icon, GlobeIcon, LockIcon, PlusIcon, TagIcon, UsersIcon, XIcon } from "lucide-react";
 import { type KeyboardEvent, useMemo, useRef, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
-import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuLabel,
+  DropdownMenuSeparator,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Textarea } from "@/components/ui/textarea";
@@ -10,6 +17,7 @@ import { useBoardCards, useCreateBoardMemo } from "@/hooks/useBoardQueries";
 import { Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import { CATEGORY_PALETTE, getCardCategories, getCategoryColor } from "./cardUtils";
+import { ENGINEERING_TEMPLATES, type EngineeringTemplate } from "./engineeringTemplates";
 
 interface InlineCardCreatorProps {
   boardId: string;
@@ -53,6 +61,15 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
       setSelectedCategories((prev) => [...prev, trimmed]);
     }
     setNewCatInput("");
+  };
+
+  const handleSelectTemplate = (tmpl: EngineeringTemplate) => {
+    setContent(tmpl.templateContent);
+    if (!selectedCategories.includes(tmpl.category)) {
+      setSelectedCategories((prev) => [...prev, tmpl.category]);
+    }
+    textareaRef.current?.focus();
+    toast.success(`Loaded ${tmpl.category} template`);
   };
 
   const handleSubmit = async () => {
@@ -268,6 +285,35 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
             )}
           </PopoverContent>
         </Popover>
+
+        {/* Engineering Templates Dropdown */}
+        <DropdownMenu>
+          <DropdownMenuTrigger
+            render={
+              <Button variant="outline" size="sm" className="h-6 px-2 text-[11px] gap-1 text-muted-foreground hover:text-foreground">
+                <FileCode2Icon className="size-3 text-primary" />
+                <span>Templates</span>
+              </Button>
+            }
+          />
+          <DropdownMenuContent align="start" className="w-64">
+            <DropdownMenuLabel className="text-xs font-semibold text-muted-foreground">Engineering Templates</DropdownMenuLabel>
+            <DropdownMenuSeparator />
+            {ENGINEERING_TEMPLATES.map((tmpl) => (
+              <DropdownMenuItem
+                key={tmpl.id}
+                onClick={() => handleSelectTemplate(tmpl)}
+                className="flex flex-col items-start gap-0.5 cursor-pointer py-1.5"
+              >
+                <div className="flex items-center gap-1.5 font-medium text-xs text-foreground">
+                  <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: tmpl.categoryColorHex }} />
+                  <span>{tmpl.title}</span>
+                </div>
+                <span className="text-[10px] text-muted-foreground line-clamp-1">{tmpl.description}</span>
+              </DropdownMenuItem>
+            ))}
+          </DropdownMenuContent>
+        </DropdownMenu>
       </div>
 
       <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">

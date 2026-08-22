@@ -7,6 +7,7 @@ export * from "./cardUtils";
 export * from "./constants";
 export * from "./DeleteBoardDialog";
 export { default as DeleteBoardDialog } from "./DeleteBoardDialog";
+export * from "./engineeringTemplates";
 export * from "./InlineCardCreator";
 export * from "./KanbanCard";
 export * from "./KanbanColumn";

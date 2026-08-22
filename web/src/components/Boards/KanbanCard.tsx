@@ -6,6 +6,7 @@ import {
   ArchiveRestoreIcon,
   CalendarIcon,
   CheckCircle2Icon,
+  CheckSquareIcon,
   CircleIcon,
   GlobeIcon,
   GripVerticalIcon,
@@ -17,6 +18,7 @@ import {
   Trash2Icon,
   UsersIcon,
 } from "lucide-react";
+import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
@@ -26,7 +28,14 @@ import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
 import { KanbanSchema, type Memo, MemoRelation_Type, Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
-import { computeDeadlineProgress, getCardCategories, getCategoryColor, parseCardContent } from "./cardUtils";
+import {
+  computeDeadlineProgress,
+  getCardCategories,
+  getCategoryColor,
+  parseCardContent,
+  parseTaskLists,
+  toggleTaskListItem,
+} from "./cardUtils";
 
 interface KanbanCardProps {
   memo: Memo;
@@ -41,6 +50,7 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
   const updateMemoKanban = useUpdateMemoKanban();
   const { mutateAsync: deleteMemo } = useDeleteMemo();
   const { mutateAsync: updateMemo } = useUpdateMemo();
+  const [showAllSubtasks, setShowAllSubtasks] = useState(false);
 
   const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
     id: memo.name,
@@ -58,6 +68,7 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
   };
 
   const { title, description } = parseCardContent(memo.content);
+  const taskSummary = useMemo(() => parseTaskLists(memo.content), [memo.content]);
   const isClosed = Boolean(memo.kanban?.isClosed);
   const isArchived = memo.state === State.ARCHIVED;
   const categories = getCardCategories(memo.kanban);
@@ -68,6 +79,22 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
 
   const commentsCount = memo.relations.filter((r) => r.type === MemoRelation_Type.COMMENT && r.relatedMemo?.name === memo.name).length;
   const attachmentsCount = memo.attachments.length;
+
+  const handleToggleSubtask = async (e: React.MouseEvent, itemIndex: number, currentChecked: boolean) => {
+    e.stopPropagation();
+    const updatedContent = toggleTaskListItem(memo.content, itemIndex, !currentChecked);
+    try {
+      await updateMemo({
+        update: {
+          name: memo.name,
+          content: updatedContent,
+        },
+        updateMask: ["content"],
+      });
+    } catch {
+      toast.error("Failed to update checklist item");
+    }
+  };
 
   const handleToggleClose = async (e: React.MouseEvent) => {
     e.stopPropagation();
@@ -254,6 +281,83 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
         {description && <p className="text-xs text-muted-foreground/80 line-clamp-2 leading-relaxed">{description}</p>}
       </div>
 
+      {/* Subtasks Live Checklist */}
+      {taskSummary.total > 0 && (
+        <div className="space-y-1.5 pt-1">
+          <div className="flex items-center justify-between text-[11px]">
+            <div className="inline-flex items-center gap-1 font-medium text-muted-foreground">
+              <CheckSquareIcon className="size-3 text-primary" />
+              <span>Subtasks</span>
+            </div>
+            <span className="font-mono text-[10px] text-muted-foreground font-medium">
+              {taskSummary.completed}/{taskSummary.total} ({taskSummary.percent}%)
+            </span>
+          </div>
+
+          <div className="w-full bg-muted/80 h-1.5 rounded-full overflow-hidden">
+            <div
+              className={cn(
+                "h-full rounded-full transition-all duration-300",
+                taskSummary.percent === 100 ? "bg-emerald-500" : "bg-primary",
+              )}
+              style={{ width: `${taskSummary.percent}%` }}
+            />
+          </div>
+
+          <div className="space-y-1 pt-0.5">
+            {(showAllSubtasks ? taskSummary.items : taskSummary.items.slice(0, 3)).map((item) => (
+              <div
+                key={item.index}
+                className="flex items-start gap-1.5 text-xs text-foreground/90 group/subtask hover:bg-muted/40 p-0.5 rounded transition-colors cursor-pointer"
+                onClick={(e) => void handleToggleSubtask(e, item.index, item.checked)}
+                role="checkbox"
+                aria-checked={item.checked}
+                tabIndex={0}
+                onKeyDown={(e) => {
+                  if (e.key === " " || e.key === "Enter") {
+                    e.preventDefault();
+                    void handleToggleSubtask(e as unknown as React.MouseEvent, item.index, item.checked);
+                  }
+                }}
+              >
+                <button
+                  type="button"
+                  className="shrink-0 mt-0.5 text-muted-foreground hover:text-primary transition-colors cursor-pointer"
+                  title={item.checked ? "Mark uncompleted" : "Mark completed"}
+                >
+                  {item.checked ? (
+                    <CheckCircle2Icon className="size-3.5 text-emerald-500 fill-emerald-500/20" />
+                  ) : (
+                    <CircleIcon className="size-3.5 text-muted-foreground/60 group-hover/subtask:text-foreground" />
+                  )}
+                </button>
+                <span
+                  className={cn(
+                    "text-[11px] leading-tight break-all line-clamp-1",
+                    item.checked && "line-through text-muted-foreground/70",
+                  )}
+                >
+                  {item.text}
+                </span>
+              </div>
+            ))}
+
+            {taskSummary.total > 3 && (
+              <button
+                type="button"
+                onClick={(e) => {
+                  e.stopPropagation();
+                  setShowAllSubtasks((prev) => !prev);
+                }}
+                className="text-[10px] text-primary hover:underline font-medium pt-0.5 block cursor-pointer"
+              >
+                {showAllSubtasks ? "Show less" : `+${taskSummary.total - 3} more subtasks`}
+              </button>
+            )}
+          </div>
+        </div>
+      )}
+
       {/* Due Date & Progress Bar */}
       {deadline && (
         <div className="space-y-1 pt-1">
@@ -283,6 +387,17 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
       {/* Footer metadata counters */}
       <div className="flex items-center justify-between text-xs text-muted-foreground/70 pt-1 border-t border-border/40">
         <div className="flex items-center gap-2.5">
+          {taskSummary.total > 0 && (
+            <span
+              className="inline-flex items-center gap-1 text-[11px]"
+              title={`${taskSummary.completed}/${taskSummary.total} subtasks completed`}
+            >
+              <CheckSquareIcon className="size-3" />
+              <span>
+                {taskSummary.completed}/{taskSummary.total}
+              </span>
+            </span>
+          )}
           {attachmentsCount > 0 && (
             <span className="inline-flex items-center gap-1 text-[11px]" title={`${attachmentsCount} attachments`}>
               <PaperclipIcon className="size-3" />

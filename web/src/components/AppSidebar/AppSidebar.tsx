@@ -65,6 +65,7 @@ import type { MemoView } from "@/types/proto/api/v1/memo_view_service_pb";
 import { User_Role, UserNotification_Status } from "@/types/proto/api/v1/user_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import MemosLogo from "../MemosLogo";
+import BoardsSidebarContent from "./BoardsSidebarContent";
 import { getSidebarRouteKind } from "./routes";
 import SidebarRow, { SIDEBAR_ROW_CLASSES, SIDEBAR_ROW_FOCUS_CLASSES, SIDEBAR_ROW_ICON_CLASSES, sidebarRowStateClasses } from "./SidebarRow";
 import SidebarSection, {
@@ -405,6 +406,7 @@ const RouteSidebarContent = () => {
     return <CollectionSidebarContent context={kind} />;
   }
   if (kind === "views") return <ViewsSection manageActive />;
+  if (kind === "boards") return <BoardsSidebarContent />;
   if (kind === "attachments") return <AttachmentsSidebarContent />;
   if (kind === "inbox") return <InboxSidebarContent />;
   if (kind === "settings") return <SettingsSidebarContent />;
@@ -511,6 +513,13 @@ const GlobalNavigation = () => {
           path: ROUTES.ATTACHMENTS,
           icon: PaperclipIcon,
           active: location.pathname === ROUTES.ATTACHMENTS,
+        },
+        {
+          id: "archived",
+          label: t("common.archived"),
+          path: ROUTES.ARCHIVED,
+          icon: ArchiveIcon,
+          active: location.pathname === ROUTES.ARCHIVED,
         },
         {
           id: "inbox",

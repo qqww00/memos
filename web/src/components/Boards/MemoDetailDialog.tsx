@@ -1,6 +1,7 @@
 import { create } from "@bufbuild/protobuf";
 import {
   ArchiveIcon,
+  ArchiveRestoreIcon,
   ArrowUpLeftFromCircleIcon,
   CalendarIcon,
   CheckCircle2Icon,
@@ -245,21 +246,27 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     }
   };
 
-  const handleArchiveMemo = async () => {
+  const isArchived = memo.state === State.ARCHIVED;
+
+  const handleToggleArchiveMemo = async () => {
     if (!memo) return;
     setIsArchiving(true);
+    const newState = isArchived ? State.NORMAL : State.ARCHIVED;
+    const successMsg = isArchived
+      ? t("message.restored-successfully") || "Memo restored"
+      : t("message.archived-successfully") || "Memo archived";
     try {
       await updateMemo({
         update: {
           name: memo.name,
-          state: State.ARCHIVED,
+          state: newState,
         },
         updateMask: ["state"],
       });
-      toast.success(t("message.archived-successfully") || "Memo archived");
+      toast.success(successMsg);
       onOpenChange(false);
     } catch {
-      toast.error("Failed to archive memo");
+      toast.error(isArchived ? "Failed to restore memo" : "Failed to archive memo");
     } finally {
       setIsArchiving(false);
     }
@@ -556,27 +563,29 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
                   </Button>
                 )}
 
-                <div className="pt-2 border-t border-border/40 space-y-1">
+                <div className="pt-2 border-t border-border/40">
                   <Button
                     type="button"
                     variant="outline"
                     size="sm"
                     className={cn(
-                      "w-full gap-1.5 text-xs h-8",
-                      isClosedDraft
-                        ? "text-foreground hover:bg-accent cursor-pointer"
-                        : "text-muted-foreground/60 cursor-not-allowed border-dashed opacity-70",
+                      "w-full gap-1.5 text-xs h-8 transition-colors",
+                      isArchived ? "text-primary border-primary/50 hover:bg-primary/10" : "text-muted-foreground hover:text-foreground",
                     )}
-                    disabled={!isClosedDraft || isArchiving}
-                    onClick={() => void handleArchiveMemo()}
-                    title={isClosedDraft ? "Archive card" : "Mark card as completed to enable archiving"}
+                    disabled={isArchiving}
+                    onClick={() => void handleToggleArchiveMemo()}
                   >
-                    <ArchiveIcon className="size-3.5" />
-                    <span>{isArchiving ? "Archiving..." : t("common.archive") || "Archive"}</span>
+                    {isArchived ? <ArchiveRestoreIcon className="size-3.5" /> : <ArchiveIcon className="size-3.5" />}
+                    <span>
+                      {isArchiving
+                        ? isArchived
+                          ? "Restoring..."
+                          : "Archiving..."
+                        : isArchived
+                          ? t("common.restore") || "Restore"
+                          : t("common.archive") || "Archive"}
+                    </span>
                   </Button>
-                  {!isClosedDraft && (
-                    <p className="text-[10px] text-muted-foreground/60 text-center">Status must be completed to archive</p>
-                  )}
                 </div>
               </div>
             </div>

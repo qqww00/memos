@@ -3,6 +3,7 @@ import { useSortable } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import {
   ArchiveIcon,
+  ArchiveRestoreIcon,
   CalendarIcon,
   CheckCircle2Icon,
   CircleIcon,
@@ -58,6 +59,7 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
 
   const { title, description } = parseCardContent(memo.content);
   const isClosed = Boolean(memo.kanban?.isClosed);
+  const isArchived = memo.state === State.ARCHIVED;
   const categories = getCardCategories(memo.kanban);
 
   const createSeconds = memo.createTime ? Number(memo.createTime.seconds) : undefined;
@@ -102,19 +104,23 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
     }
   };
 
-  const handleArchiveMemo = async (e: React.MouseEvent) => {
+  const handleToggleArchiveMemo = async (e: React.MouseEvent) => {
     e.stopPropagation();
+    const newState = isArchived ? State.NORMAL : State.ARCHIVED;
+    const successMsg = isArchived
+      ? t("message.restored-successfully") || "Memo restored"
+      : t("message.archived-successfully") || "Memo archived";
     try {
       await updateMemo({
         update: {
           name: memo.name,
-          state: State.ARCHIVED,
+          state: newState,
         },
         updateMask: ["state"],
       });
-      toast.success(t("message.archived-successfully") || "Memo archived");
+      toast.success(successMsg);
     } catch {
-      toast.error("Failed to archive memo");
+      toast.error(isArchived ? "Failed to restore memo" : "Failed to archive memo");
     }
   };
 
@@ -218,9 +224,9 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
                 <CheckCircle2Icon className="size-3.5 mr-2" />
                 <span>{isClosed ? "Reopen card" : "Close card"}</span>
               </DropdownMenuItem>
-              <DropdownMenuItem onClick={handleArchiveMemo}>
-                <ArchiveIcon className="size-3.5 mr-2" />
-                <span>{t("common.archive")}</span>
+              <DropdownMenuItem onClick={handleToggleArchiveMemo}>
+                {isArchived ? <ArchiveRestoreIcon className="size-3.5 mr-2" /> : <ArchiveIcon className="size-3.5 mr-2" />}
+                <span>{isArchived ? t("common.restore") : t("common.archive")}</span>
               </DropdownMenuItem>
               <DropdownMenuItem onClick={handleRemoveFromBoard}>
                 <LogOutIcon className="size-3.5 mr-2" />

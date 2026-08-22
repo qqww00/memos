@@ -1008,6 +1008,13 @@
     "added-to-board": "Added to board",
     "removed-from-board": "Removed from board",
     "add-existing-memo": "Add existing memo",
-    "create-memo": "Create memo"
+    "create-memo": "Create memo",
+    "progress": "Board Progress",
+    "attention": "Deadlines",
+    "overdue": "Overdue",
+    "due-today": "Due Today",
+    "completed": "Completed",
+    "categories": "Categories",
+    "overview": "Overview"
   }
 }

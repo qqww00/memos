@@ -14,7 +14,7 @@ import { arrayMove, horizontalListSortingStrategy, SortableContext, sortableKeyb
 import { ArrowLeftIcon, CalendarIcon, CheckIcon, FilterIcon, KanbanIcon, PlusIcon, RotateCcwIcon, TagIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams, useSearchParams } from "react-router-dom";
 import { AddMemoToBoardDialog, BOARD_COLUMN_COLORS, KanbanCard, KanbanColumn, MemoDetailDialog } from "@/components/Boards";
 import { getCardCategories, getCategoryColor } from "@/components/Boards/cardUtils";
 import { Button } from "@/components/ui/button";
@@ -45,12 +45,50 @@ export const BoardDetail = () => {
   const t = useTranslate();
   const navigate = useNavigate();
   const { boardId = "" } = useParams();
+  const [searchParams, setSearchParams] = useSearchParams();
 
-  // Filters state
-  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "completed" | "archived">("all");
-  const [filterCategory, setFilterCategory] = useState<string | null>(null);
-  const [dueDateFrom, setDueDateFrom] = useState<string>("");
-  const [dueDateTo, setDueDateTo] = useState<string>("");
+  // Filters state synchronized via URL search parameters
+  const filterStatus = (searchParams.get("status") as "all" | "active" | "completed" | "archived") || "all";
+  const filterCategory = searchParams.get("category");
+  const filterDue = searchParams.get("due");
+  const dueDateFrom = searchParams.get("dueFrom") || "";
+  const dueDateTo = searchParams.get("dueTo") || "";
+
+  const setFilterStatus = (status: "all" | "active" | "completed" | "archived") => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (status === "all") next.delete("status");
+      else next.set("status", status);
+      return next;
+    });
+  };
+
+  const setFilterCategory = (category: string | null) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!category) next.delete("category");
+      else next.set("category", category);
+      return next;
+    });
+  };
+
+  const setDueDateFrom = (from: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!from) next.delete("dueFrom");
+      else next.set("dueFrom", from);
+      return next;
+    });
+  };
+
+  const setDueDateTo = (to: string) => {
+    setSearchParams((prev) => {
+      const next = new URLSearchParams(prev);
+      if (!to) next.delete("dueTo");
+      else next.set("dueTo", to);
+      return next;
+    });
+  };
 
   const { data: boards = [], isLoading: isBoardsLoading } = useBoards();
   const { data: cards = [], isLoading: isCardsLoading } = useBoardCards(boardId, {
@@ -96,19 +134,19 @@ export const BoardDetail = () => {
     }),
   );
 
-  const hasActiveFilters = filterStatus !== "all" || filterCategory !== null || Boolean(dueDateFrom) || Boolean(dueDateTo);
+  const hasActiveFilters =
+    filterStatus !== "all" || filterCategory !== null || Boolean(filterDue) || Boolean(dueDateFrom) || Boolean(dueDateTo);
 
   const handleClearAllFilters = () => {
-    setFilterStatus("all");
-    setFilterCategory(null);
-    setDueDateFrom("");
-    setDueDateTo("");
+    setSearchParams(new URLSearchParams());
   };
 
   const columnCardsMap = useMemo(() => {
     const columnIds = board?.columns.map((c) => c.id) || [];
     const fromSec = dueDateFrom ? Math.floor(new Date(`${dueDateFrom}T00:00:00`).getTime() / 1000) : null;
     const toSec = dueDateTo ? Math.floor(new Date(`${dueDateTo}T23:59:59`).getTime() / 1000) : null;
+    const nowSec = Math.floor(Date.now() / 1000);
+    const todayEndSec = Math.floor(new Date().setHours(23, 59, 59, 999) / 1000);
 
     const filteredCards = cards.filter((memo) => {
       // 1. Status Filter
@@ -124,7 +162,18 @@ export const BoardDetail = () => {
         if (!cats.includes(filterCategory)) return false;
       }
 
-      // 3. Due Date Range Filter
+      // 3. Due Preset Filter (Overdue / Today)
+      if (filterDue === "overdue") {
+        if (memo.kanban?.isClosed) return false;
+        const dueSec = memo.kanban?.dueTime ? Number(memo.kanban.dueTime.seconds) : 0;
+        if (dueSec === 0 || dueSec >= nowSec) return false;
+      } else if (filterDue === "today") {
+        if (memo.kanban?.isClosed) return false;
+        const dueSec = memo.kanban?.dueTime ? Number(memo.kanban.dueTime.seconds) : 0;
+        if (dueSec < nowSec || dueSec > todayEndSec) return false;
+      }
+
+      // 4. Due Date Range Filter
       if (fromSec !== null || toSec !== null) {
         const dueSec = memo.kanban?.dueTime ? Number(memo.kanban.dueTime.seconds) : null;
         if (dueSec === null) return false;
@@ -136,7 +185,7 @@ export const BoardDetail = () => {
     });
 
     return groupCardsByColumn(filteredCards, columnIds);
-  }, [cards, board?.columns, filterStatus, filterCategory, dueDateFrom, dueDateTo]);
+  }, [cards, board?.columns, filterStatus, filterCategory, filterDue, dueDateFrom, dueDateTo]);
 
   if (isBoardsLoading || isCardsLoading) {
     return (
@@ -230,7 +279,15 @@ export const BoardDetail = () => {
     if (targetOverMemoName) {
       const idx = targetListWithoutActive.findIndex((c) => c.name === targetOverMemoName);
       if (idx !== -1) {
-        targetIndex = idx;
+        // When dragging within the same column, we need to determine the drop direction:
+        // - Dragging DOWN (source was above target): insert AFTER the target card.
+        // - Dragging UP (source was below target): insert BEFORE the target card.
+        // Without this, dragging a card from top to bottom always ends up before the
+        // hovered card (i.e., it never actually moves down).
+        const sourceIndex = targetColumnCards.findIndex((c) => c.name === activeMemoName);
+        const targetInOriginal = targetColumnCards.findIndex((c) => c.name === targetOverMemoName);
+        const isDraggingDown = sourceColumnId === targetColumnId && sourceIndex < targetInOriginal;
+        targetIndex = isDraggingDown ? idx + 1 : idx;
       }
     }
 
@@ -249,28 +306,40 @@ export const BoardDetail = () => {
         } else if (item.kanban?.position !== normalizedPos) {
           void updateMemoKanban.mutateAsync({
             name: item.name,
+            // Preserve all existing kanban fields; only update columnId and position.
             kanban: create(KanbanSchema, {
               boardId,
               columnId: targetColumnId,
               position: normalizedPos,
+              category: item.kanban?.category,
+              categoryColorHex: item.kanban?.categoryColorHex,
+              dueTime: item.kanban?.dueTime,
+              isClosed: item.kanban?.isClosed,
+              categories: item.kanban?.categories,
             }),
           });
         }
       }
     }
 
-    // Skip if dropped in same position and column
-    if (sourceColumnId === targetColumnId && activeMemo.kanban?.position === newPosition && targetOverMemoName === activeMemoName) {
+    // Skip if card was dropped back onto the same column at the same position.
+    if (sourceColumnId === targetColumnId && activeMemo.kanban?.position === newPosition) {
       return;
     }
 
     try {
       await updateMemoKanban.mutateAsync({
         name: activeMemoName,
+        // Preserve all existing kanban fields; only override columnId and position.
         kanban: create(KanbanSchema, {
           boardId,
           columnId: targetColumnId,
           position: newPosition,
+          category: activeMemo.kanban?.category,
+          categoryColorHex: activeMemo.kanban?.categoryColorHex,
+          dueTime: activeMemo.kanban?.dueTime,
+          isClosed: activeMemo.kanban?.isClosed,
+          categories: activeMemo.kanban?.categories,
         }),
       });
     } catch {
@@ -448,12 +517,18 @@ export const BoardDetail = () => {
                   size="sm"
                   className={cn(
                     "gap-1.5 text-xs text-muted-foreground hover:text-foreground",
-                    (dueDateFrom || dueDateTo) && "border-primary/60 text-primary bg-primary/5",
+                    (dueDateFrom || dueDateTo || filterDue) && "border-primary/60 text-primary bg-primary/5",
                   )}
                 >
                   <CalendarIcon className="size-3.5" />
                   <span className="truncate max-w-[130px]">
-                    {dueDateFrom || dueDateTo ? `${dueDateFrom || "..."} → ${dueDateTo || "..."}` : "Due Date"}
+                    {filterDue === "overdue"
+                      ? "Overdue"
+                      : filterDue === "today"
+                        ? "Due Today"
+                        : dueDateFrom || dueDateTo
+                          ? `${dueDateFrom || "..."} → ${dueDateTo || "..."}`
+                          : "Due Date"}
                   </span>
                 </Button>
               }
@@ -461,12 +536,17 @@ export const BoardDetail = () => {
             <PopoverContent align="end" className="w-72 p-3 space-y-3">
               <div className="flex items-center justify-between">
                 <span className="text-xs font-semibold text-foreground">Due Date Range</span>
-                {(dueDateFrom || dueDateTo) && (
+                {(dueDateFrom || dueDateTo || filterDue) && (
                   <button
                     type="button"
                     onClick={() => {
                       setDueDateFrom("");
                       setDueDateTo("");
+                      setSearchParams((prev) => {
+                        const next = new URLSearchParams(prev);
+                        next.delete("due");
+                        return next;
+                      });
                     }}
                     className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
                   >

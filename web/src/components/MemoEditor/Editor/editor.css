@@ -94,9 +94,10 @@
     font-weight: 600;
   }
 
-  /* #tag / @mention decorations. */
+  /* #tag / @mention / [[memo]] decorations. */
   & .cm-memo-tag,
-  & .cm-memo-mention {
+  & .cm-memo-mention,
+  & .cm-memo-memo-mention {
     color: var(--primary);
   }
 

@@ -122,7 +122,7 @@ const MemoDetail = () => {
     <section className="@container flex min-h-full w-full flex-col items-center pb-8 pt-3 md:pt-6">
       <MentionResolutionProvider contents={mentionResolutionContents} userNames={userResolutionNames}>
         <MemoSidebarRegistration memo={displayMemo} from={parentPage} readonly={isShareMode} onShareImageOpen={handleShareImageOpen} />
-        <div className="w-full max-w-2xl px-4 sm:px-6">
+        <div className="w-full max-w-4xl px-4 sm:px-6">
           <div className="w-full">
             {!isShareMode && parentMemo && (
               <div className="w-auto inline-block mb-2">

@@ -12,6 +12,15 @@ export interface MentionNode {
   data: MentionNodeData;
 }
 
+export interface MemoMentionNode {
+  type: "memoMentionNode";
+  memoName: string;
+  memoId: string;
+  title?: string;
+  value: string;
+  data: MemoMentionNodeData;
+}
+
 export interface TagNodeData {
   hName: "span";
   hProperties: TagNodeProperties;
@@ -24,6 +33,12 @@ export interface MentionNodeData {
   hChildren: Array<{ type: "text"; value: string }>;
 }
 
+export interface MemoMentionNodeData {
+  hName: "span";
+  hProperties: MemoMentionNodeProperties;
+  hChildren: Array<{ type: "text"; value: string }>;
+}
+
 export interface TagNodeProperties {
   className: string;
   "data-tag": string;
@@ -32,6 +47,13 @@ export interface TagNodeProperties {
 export interface MentionNodeProperties {
   className: string;
   "data-mention": string;
+}
+
+export interface MemoMentionNodeProperties {
+  className: string;
+  "data-memo-mention": string;
+  "data-memo-id": string;
+  "data-memo-title"?: string;
 }
 
 export interface ExtendedData extends Data {
@@ -78,6 +100,27 @@ export function isMentionElement(node: HastElement): boolean {
     return true;
   }
   if (typeof className === "string" && className.split(/\s+/).includes("mention")) {
+    return true;
+  }
+
+  return false;
+}
+
+export function isMemoMentionElement(node: HastElement): boolean {
+  if (hasExtendedData(node) && node.data.mdastType === "memoMentionNode") {
+    return true;
+  }
+
+  const dataMemoMention = node.properties?.["data-memo-mention"];
+  if (typeof dataMemoMention === "string" && dataMemoMention !== "") {
+    return true;
+  }
+
+  const className = node.properties?.className;
+  if (Array.isArray(className) && className.includes("memo-mention")) {
+    return true;
+  }
+  if (typeof className === "string" && className.split(/\s+/).includes("memo-mention")) {
     return true;
   }
 

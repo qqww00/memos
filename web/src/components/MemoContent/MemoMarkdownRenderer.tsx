@@ -3,12 +3,13 @@ import { type ComponentProps, memo, type ReactNode, Suspense } from "react";
 import type { Components } from "react-markdown";
 import ReactMarkdown from "react-markdown";
 import { buildRehypePlugins, buildRemarkPlugins } from "@/components/MemoContent/pipeline";
-import { isMentionElement, isTagElement, isTaskListItemElement } from "@/types/markdown";
+import { isMemoMentionElement, isMentionElement, isTagElement, isTaskListItemElement } from "@/types/markdown";
 import type { Attachment } from "@/types/proto/api/v1/attachment_service_pb";
 import { lazyWithReload } from "@/utils/lazy";
 import { resolveManagedAttachmentImageSource } from "@/utils/managed-attachment";
 import { CodeBlock } from "./CodeBlock";
 import { MarkdownRenderContext, rootMarkdownRenderContext } from "./MarkdownRenderContext";
+import { MemoMention } from "./MemoMention";
 import { Mention } from "./Mention";
 import { AnchorLink, Blockquote, Heading, HorizontalRule, Image, InlineCode, Link, List, ListItem, Paragraph } from "./markdown";
 import { hasMathSyntax } from "./math";
@@ -77,6 +78,9 @@ export const MemoMarkdownRendererCore = ({
       if (node && isMentionElement(node)) {
         const username = getMentionUsername(node, spanProps.children);
         return <Mention {...spanProps} node={node} data-mention={username} resolved={resolvedMentionUsernames.has(username)} />;
+      }
+      if (node && isMemoMentionElement(node)) {
+        return <MemoMention {...spanProps} node={node} />;
       }
       if (node && isTagElement(node)) {
         return <Tag {...spanProps} node={node} />;

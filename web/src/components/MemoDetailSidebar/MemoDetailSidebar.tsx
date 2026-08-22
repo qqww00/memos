@@ -17,6 +17,7 @@ import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
 import { Memo, type MemoRelation } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
+import { extractMemoDisplayTitle } from "@/utils/memo-mention-grammar";
 import { isSuperUser } from "@/utils/user";
 import MemoOutline from "./MemoOutline";
 import MemoSharePanel from "./MemoSharePanel";
@@ -28,8 +29,8 @@ interface Props {
   forceReadonly?: boolean;
 }
 
-const BacklinkRow = ({ relation, snippet }: { relation: MemoRelation; snippet: string }) => {
-  const { ref, title } = useOverflowTitle<HTMLSpanElement>(snippet);
+const BacklinkRow = ({ relation, title: itemTitle }: { relation: MemoRelation; title: string }) => {
+  const { ref, title: overflowTitle } = useOverflowTitle<HTMLSpanElement>(itemTitle);
   const relatedMemo = getRelationMemo(relation, "referenced");
   if (!relatedMemo) {
     return null;
@@ -39,12 +40,12 @@ const BacklinkRow = ({ relation, snippet }: { relation: MemoRelation; snippet: s
     <Link
       className={cn(SIDEBAR_ROW_CLASSES, "text-muted-foreground hover:bg-sidebar-accent/65 hover:text-foreground")}
       to={`/${relatedMemo.name}`}
-      title={title}
+      title={overflowTitle}
       viewTransition
     >
       <LinkIcon className={SIDEBAR_ROW_ICON_CLASSES} strokeWidth={1.8} />
       <span ref={ref} className="min-w-0 flex-1 truncate text-left">
-        {snippet}
+        {itemTitle}
       </span>
     </Link>
   );
@@ -69,18 +70,22 @@ const MemoDetailSidebar = ({ memo, className, onShareImageOpen, forceReadonly = 
         ? []
         : referenced.flatMap((relation) => {
             const relatedMemo = getRelationMemo(relation, "referenced");
-            return relatedMemo?.name && !relatedMemo.snippet ? [relatedMemo.name] : [];
+            return relatedMemo?.name ? [relatedMemo.name] : [];
           }),
     [forceReadonly, referenced],
   );
   const resolvedMemos = useResolvedRelationMemos(backlinkMemoNames);
 
-  const backlinkSnippet = (relation: MemoRelation) => {
+  const backlinkTitle = (relation: MemoRelation) => {
     const relatedMemo = getRelationMemo(relation, "referenced");
     if (!relatedMemo) {
       return "";
     }
-    return relatedMemo.snippet || resolvedMemos[relatedMemo.name]?.snippet || relatedMemo.name;
+    const resolved = resolvedMemos[relatedMemo.name];
+    if (resolved?.snippet) {
+      return resolved.snippet;
+    }
+    return extractMemoDisplayTitle({ snippet: relatedMemo.snippet, name: relatedMemo.name });
   };
 
   const handleTogglePin = async () => {
@@ -146,7 +151,7 @@ const MemoDetailSidebar = ({ memo, className, onShareImageOpen, forceReadonly = 
         <SidebarSection label={t("common.referenced-by")}>
           {referenced.map((relation) => {
             const relatedMemo = getRelationMemo(relation, "referenced");
-            return <BacklinkRow key={`referenced-${relatedMemo?.name}`} relation={relation} snippet={backlinkSnippet(relation)} />;
+            return <BacklinkRow key={`referenced-${relatedMemo?.name}`} relation={relation} title={backlinkTitle(relation)} />;
           })}
         </SidebarSection>
       )}

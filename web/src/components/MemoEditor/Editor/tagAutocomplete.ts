@@ -2,6 +2,7 @@ import { autocompletion, type CompletionContext, type CompletionResult } from "@
 import type { Extension } from "@codemirror/state";
 import { isTagIntroducerAt } from "@/utils/tag-grammar";
 import { isLiteralTagPosition, tagMatchBefore } from "./markdownTagRanges";
+import { makeMemoMentionCompletionSource } from "./memoMentionAutocomplete";
 
 /**
  * Ranks a candidate tag against the typed text (both already lower-cased).
@@ -44,7 +45,7 @@ export function makeTagCompletionSource(getTags: () => string[]) {
 
 export function tagAutocomplete(getTags: () => string[]): Extension {
   return autocompletion({
-    override: [makeTagCompletionSource(getTags)],
+    override: [makeTagCompletionSource(getTags), makeMemoMentionCompletionSource()],
     icons: false,
   });
 }

@@ -3,6 +3,7 @@ import { useQueryClient } from "@tanstack/react-query";
 import { useEffect, useMemo, useState } from "react";
 import { findMemoInCollectionQueries, memoDetailQueryOptions } from "@/hooks/useMemoQueries";
 import { MemoRelation_Memo, MemoRelation_MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
+import { extractMemoDisplayTitle } from "@/utils/memo-mention-grammar";
 
 export const useResolvedRelationMemos = (memoNames: string[], options?: { enabled?: boolean }) => {
   const queryClient = useQueryClient();
@@ -25,7 +26,8 @@ export const useResolvedRelationMemos = (memoNames: string[], options?: { enable
         const memos = await Promise.all(
           missingMemoNames.map(async (name) => {
             const memo = findMemoInCollectionQueries(queryClient, name) ?? (await queryClient.fetchQuery(memoDetailQueryOptions(name)));
-            return create(MemoRelation_MemoSchema, { name: memo.name, snippet: memo.snippet });
+            const title = extractMemoDisplayTitle(memo);
+            return create(MemoRelation_MemoSchema, { name: memo.name, snippet: title || memo.snippet });
           }),
         );
 

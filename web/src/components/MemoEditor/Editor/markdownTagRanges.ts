@@ -13,6 +13,7 @@ import {
 } from "@/utils/markdown-link";
 import { findDecodedMarkdownSourceBoundaries } from "@/utils/markdown-source-boundaries";
 import { memoMarkdownExtensions } from "@/utils/memo-markdown-extension";
+import { findMemoMentionMatches, type MemoMentionMatch } from "@/utils/memo-mention-grammar";
 import { findMentionMatches, type MentionMatch } from "@/utils/mention-grammar";
 import { findTagMatches, type TagMatch } from "@/utils/tag-grammar";
 import { isUsernameCharacter } from "@/utils/username";
@@ -336,11 +337,39 @@ export function findMarkdownMentionMatches(state: EditorState, from: number, to:
   return matches;
 }
 
+/** Find wiki-link memo references in literal Markdown source. */
+export function findMarkdownMemoMentionMatches(state: EditorState, from: number, to: number): MemoMentionMatch[] {
+  const matches: MemoMentionMatch[] = [];
+  for (const range of literalMarkdownSourceRanges(state, from, to)) {
+    const source = state.doc.sliceString(range.from, range.to);
+    for (const match of findMemoMentionMatches(source)) {
+      matches.push({ ...match, from: range.from + match.from, to: range.from + match.to });
+    }
+  }
+  return matches;
+}
+
 /** Return the active tag whose recognized source span ends at the cursor. */
 export function tagMatchBefore(state: EditorState, position: number): TagMatch | undefined {
   const line = state.doc.lineAt(position);
   const matches = findMarkdownTagMatches(state, line.from, position);
   return matches.findLast((match) => match.to === position);
+}
+
+/** Return the active [[ query whose opening bracket is before the cursor on the current line. */
+export function memoMentionMatchBefore(state: EditorState, position: number): { from: number; query: string } | undefined {
+  const line = state.doc.lineAt(position);
+  const textBefore = line.text.slice(0, position - line.from);
+  const lastOpen = textBefore.lastIndexOf("[[");
+  if (lastOpen === -1) return undefined;
+
+  const lastClose = textBefore.lastIndexOf("]]");
+  if (lastClose > lastOpen) return undefined;
+
+  const query = textBefore.slice(lastOpen + 2);
+  if (query.includes("[")) return undefined;
+
+  return { from: line.from + lastOpen, query };
 }
 
 /** Whether an offset is in a literal-source run (used for explicit `#` completion). */

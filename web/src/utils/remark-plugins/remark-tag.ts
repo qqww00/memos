@@ -5,12 +5,13 @@ import { gfmFromMarkdown } from "mdast-util-gfm";
 import { gfm } from "micromark-extension-gfm";
 import { decodeString } from "micromark-util-decode-string";
 import type { Node as UnistNode } from "unist";
-import type { MentionNode, MentionNodeData, TagNode, TagNodeData } from "@/types/markdown";
+import type { MemoMentionNode, MemoMentionNodeData, MentionNode, MentionNodeData, TagNode, TagNodeData } from "@/types/markdown";
 import { findMarkdownGFMEmailRanges, type GFMEmailSourceRange, type MarkdownSourceNode } from "@/utils/gfm-email";
 import { findMarkdownGFMURLRanges } from "@/utils/gfm-url";
 import { hasExactMarkdownRange, resolvedMarkdownLinkRanges } from "@/utils/markdown-link";
 import { decodedMarkdownCharacterReferenceAt, findDecodedMarkdownSourceBoundaries } from "@/utils/markdown-source-boundaries";
 import { memoMarkdownExtensions } from "@/utils/memo-markdown-extension";
+import { findMemoMentionMatches } from "@/utils/memo-mention-grammar";
 import { findMentionMatches } from "@/utils/mention-grammar";
 import { findTagMatches } from "@/utils/tag-grammar";
 import { isUsernameCharacter } from "@/utils/username";
@@ -18,7 +19,8 @@ import { isUsernameCharacter } from "@/utils/username";
 type Segment =
   | { type: "text"; value: string }
   | { type: "tag"; source: string; value: string }
-  | { type: "mention"; source: string; value: string };
+  | { type: "mention"; source: string; value: string }
+  | { type: "memoMention"; source: string; memoName: string; memoId: string; title?: string };
 
 interface SourceRange {
   from: number;
@@ -352,6 +354,9 @@ function segmentsForTextNode(
         to: run.valueFrom + match.to,
         source: run.source.slice(match.from, match.to),
         value: match.value,
+        memoName: "",
+        memoId: "",
+        title: undefined as string | undefined,
       })),
       ...findMentionMatches(run.source, run.sourceFrom === 0 || !isUsernameCharacter(source[run.sourceFrom - 1])).map((match) => ({
         type: "mention" as const,
@@ -359,6 +364,19 @@ function segmentsForTextNode(
         to: run.valueFrom + match.to,
         source: run.source.slice(match.from, match.to),
         value: match.username,
+        memoName: "",
+        memoId: "",
+        title: undefined as string | undefined,
+      })),
+      ...findMemoMentionMatches(run.source).map((match) => ({
+        type: "memoMention" as const,
+        from: run.valueFrom + match.from,
+        to: run.valueFrom + match.to,
+        source: match.source,
+        value: match.title || match.memoName,
+        memoName: match.memoName,
+        memoId: match.memoId,
+        title: match.title,
       })),
     ])
     .sort((left, right) => left.from - right.from || left.to - right.to);
@@ -369,7 +387,17 @@ function segmentsForTextNode(
   for (const match of matches) {
     if (match.from < cursor) continue;
     if (cursor < match.from) segments.push({ type: "text", value: value.slice(cursor, match.from) });
-    segments.push({ type: match.type, source: match.source, value: match.value });
+    if (match.type === "memoMention") {
+      segments.push({
+        type: "memoMention",
+        source: match.source,
+        memoName: match.memoName,
+        memoId: match.memoId,
+        title: match.title,
+      });
+    } else {
+      segments.push({ type: match.type, source: match.source, value: match.value });
+    }
     cursor = match.to;
   }
   if (cursor < value.length) segments.push({ type: "text", value: value.slice(cursor) });
@@ -408,6 +436,28 @@ function createMentionNode(username: string, source: string): MentionNode {
     value: username,
     data,
   } as MentionNode;
+}
+
+function createMemoMentionNode(memoName: string, memoId: string, title: string | undefined, source: string): MemoMentionNode {
+  const data: MemoMentionNodeData = {
+    hName: "span",
+    hProperties: {
+      className: "memo-mention",
+      "data-memo-mention": memoName,
+      "data-memo-id": memoId,
+      ...(title ? { "data-memo-title": title } : {}),
+    },
+    hChildren: [{ type: "text", value: source }],
+  };
+
+  return {
+    type: "memoMentionNode",
+    memoName,
+    memoId,
+    title,
+    value: source,
+    data,
+  } as MemoMentionNode;
 }
 
 type ParentNode = UnistNode & { children: UnistNode[] };
@@ -733,6 +783,7 @@ function transformMemoTextNodes(
       const newNodes = segments.map((segment) => {
         if (segment.type === "tag") return createTagNode(segment.value, segment.source);
         if (segment.type === "mention") return createMentionNode(segment.value, segment.source);
+        if (segment.type === "memoMention") return createMemoMentionNode(segment.memoName, segment.memoId, segment.title, segment.source);
         return { type: "text", value: segment.value } as Text;
       });
       parent.children.splice(index, 1, ...(newNodes as UnistNode[]));
@@ -778,4 +829,34 @@ export function extractMentionUsernames(source: string): string[] {
   };
   collect(tree);
   return Array.from(new Set(usernames));
+}
+
+export interface ExtractedMemoMention {
+  memoName: string;
+  memoId: string;
+  title?: string;
+}
+
+/** Extract exact memo mention candidates with the same Markdown rules used for rendering. */
+export function extractMemoMentions(source: string): ExtractedMemoMention[] {
+  const tree = fromMarkdown(source, {
+    extensions: [gfm()],
+    mdastExtensions: [gfmFromMarkdown()],
+  });
+  transformMemoSyntax(tree, source);
+
+  const mentions: ExtractedMemoMention[] = [];
+  const collect = (node: UnistNode): void => {
+    if (node.type === "memoMentionNode") {
+      const memoNode = node as MemoMentionNode;
+      mentions.push({
+        memoName: memoNode.memoName,
+        memoId: memoNode.memoId,
+        title: memoNode.title,
+      });
+    }
+    if (isParentNode(node)) node.children.forEach(collect);
+  };
+  collect(tree);
+  return mentions;
 }

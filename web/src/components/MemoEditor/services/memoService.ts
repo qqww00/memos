@@ -4,8 +4,9 @@ import { isEqual } from "lodash-es";
 import { memoServiceClient } from "@/connect";
 import type { Attachment } from "@/types/proto/api/v1/attachment_service_pb";
 import { AttachmentSchema } from "@/types/proto/api/v1/attachment_service_pb";
-import type { Memo } from "@/types/proto/api/v1/memo_service_pb";
-import { MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
+import type { Memo, MemoRelation } from "@/types/proto/api/v1/memo_service_pb";
+import { MemoRelation_MemoSchema, MemoRelation_Type, MemoRelationSchema, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
+import { extractMemoMentions } from "@/utils/remark-plugins/remark-tag";
 import type { EditorState } from "../state";
 import { uploadService } from "./uploadService";
 
@@ -17,10 +18,35 @@ function toAttachmentReferences(attachments: Attachment[]): Attachment[] {
   return attachments.map((a) => create(AttachmentSchema, { name: a.name }));
 }
 
+function mergeExtractedRelations(existingRelations: MemoRelation[], content: string, currentMemoName?: string): MemoRelation[] {
+  const extracted = extractMemoMentions(content);
+  const relations = [...existingRelations];
+  const existingNames = new Set(relations.map((r) => r.relatedMemo?.name));
+
+  for (const item of extracted) {
+    if (item.memoName === currentMemoName) continue;
+    if (!existingNames.has(item.memoName)) {
+      existingNames.add(item.memoName);
+      relations.push(
+        create(MemoRelationSchema, {
+          type: MemoRelation_Type.REFERENCE,
+          relatedMemo: create(MemoRelation_MemoSchema, {
+            name: item.memoName,
+            snippet: item.title || "",
+          }),
+        }),
+      );
+    }
+  }
+
+  return relations;
+}
+
 function buildUpdateMask(
   prevMemo: Memo,
   state: EditorState,
   allAttachments: typeof state.metadata.attachments,
+  allRelations: MemoRelation[],
 ): { mask: Set<string>; patch: Partial<Memo> } {
   const mask = new Set<string>();
   const patch: Partial<Memo> = {
@@ -40,9 +66,9 @@ function buildUpdateMask(
     mask.add("attachments");
     patch.attachments = toAttachmentReferences(allAttachments);
   }
-  if (!isEqual(state.metadata.relations, prevMemo.relations)) {
+  if (!isEqual(allRelations, prevMemo.relations)) {
     mask.add("relations");
-    patch.relations = state.metadata.relations;
+    patch.relations = allRelations;
   }
   if (!isEqual(state.metadata.location, prevMemo.location)) {
     mask.add("location");
@@ -84,11 +110,12 @@ export const memoService = {
     // 1. Upload local files first
     const newAttachments = await uploadService.uploadFiles(state.localFiles);
     const allAttachments = [...state.metadata.attachments, ...newAttachments];
+    const allRelations = mergeExtractedRelations(state.metadata.relations, state.content, options.memoName);
 
     // 2. Update existing memo
     if (options.memoName) {
       const prevMemo = await memoServiceClient.getMemo({ name: options.memoName });
-      const { mask, patch } = buildUpdateMask(prevMemo, state, allAttachments);
+      const { mask, patch } = buildUpdateMask(prevMemo, state, allAttachments, allRelations);
 
       if (mask.size === 0) {
         return { memoName: prevMemo.name, hasChanges: false };
@@ -106,7 +133,7 @@ export const memoService = {
       content: state.content,
       visibility: state.metadata.visibility,
       attachments: toAttachmentReferences(allAttachments),
-      relations: state.metadata.relations,
+      relations: allRelations,
       location: state.metadata.location,
       createTime: state.timestamps.createTime ? timestampFromDate(state.timestamps.createTime) : undefined,
       updateTime: state.timestamps.updateTime ? timestampFromDate(state.timestamps.updateTime) : undefined,

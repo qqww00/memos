@@ -1,10 +1,11 @@
 import { RangeSetBuilder } from "@codemirror/state";
 import { Decoration, type DecorationSet, EditorView } from "@codemirror/view";
-import { findMarkdownMentionMatches, findMarkdownTagMatches } from "./markdownTagRanges";
+import { findMarkdownMemoMentionMatches, findMarkdownMentionMatches, findMarkdownTagMatches } from "./markdownTagRanges";
 import { viewportDecorations } from "./viewportDecorations";
 
 const tagMark = Decoration.mark({ class: "cm-memo-tag" });
 const mentionMark = Decoration.mark({ class: "cm-memo-mention" });
+const memoMentionMark = Decoration.mark({ class: "cm-memo-memo-mention" });
 
 function build(view: EditorView): DecorationSet {
   const ranges: { from: number; to: number; deco: Decoration }[] = [];
@@ -24,6 +25,10 @@ function build(view: EditorView): DecorationSet {
 
     for (const match of findMarkdownMentionMatches(view.state, from, to)) {
       ranges.push({ from: match.from, to: match.to, deco: mentionMark });
+    }
+
+    for (const match of findMarkdownMemoMentionMatches(view.state, from, to)) {
+      ranges.push({ from: match.from, to: match.to, deco: memoMentionMark });
     }
   }
   ranges.sort((a, b) => a.from - b.from || a.to - b.to);

@@ -530,6 +530,24 @@ func (s *APIV1Service) UpdateMemo(ctx context.Context, request *v1pb.UpdateMemoR
 			}
 			nextMemo.Payload.Location = convertLocationToStore(request.Memo.Location)
 			update.Payload = nextMemo.Payload
+		} else if path == "kanban" {
+			if nextMemo.Payload == nil {
+				nextMemo.Payload = &storepb.MemoPayload{}
+			}
+			kanban := request.Memo.GetKanban()
+			if kanban == nil {
+				return nil, status.Errorf(codes.InvalidArgument, "kanban must be set when the kanban mask path is used")
+			}
+			if kanban.GetBoardId() == "" {
+				// An empty kanban message clears the card state.
+				nextMemo.Payload.Kanban = nil
+			} else {
+				if err := s.validateKanbanTarget(ctx, memo.CreatorID, kanban); err != nil {
+					return nil, err
+				}
+				nextMemo.Payload.Kanban = convertKanbanToStore(kanban)
+			}
+			update.Payload = nextMemo.Payload
 		} else if path == "attachments" {
 			attachmentsUpdated = true
 		} else if path == "relations" {

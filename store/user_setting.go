@@ -585,6 +585,124 @@ func (s *Store) upsertUserMemoViews(ctx context.Context, userID int32, memoViews
 	return errors.Wrap(err, "upsert memo views user setting")
 }
 
+// GetUserBoards returns the kanban boards of the user.
+func (s *Store) GetUserBoards(ctx context.Context, userID int32) ([]*storepb.BoardsUserSetting_Board, error) {
+	userSetting, err := s.GetUserSetting(ctx, &FindUserSetting{
+		UserID: &userID,
+		Key:    storepb.UserSetting_BOARDS,
+	})
+	if err != nil {
+		return nil, errors.Wrap(err, "get boards user setting")
+	}
+	if userSetting == nil {
+		return []*storepb.BoardsUserSetting_Board{}, nil
+	}
+
+	boards := userSetting.GetBoards().GetBoards()
+	clonedBoards := make([]*storepb.BoardsUserSetting_Board, len(boards))
+	for i, board := range boards {
+		if board != nil {
+			clonedBoard, ok := proto.Clone(board).(*storepb.BoardsUserSetting_Board)
+			if !ok {
+				return nil, errors.New("failed to clone board")
+			}
+			clonedBoards[i] = clonedBoard
+		}
+	}
+	return clonedBoards, nil
+}
+
+// GetUserBoard returns the board with the given id, or nil when not found.
+func (s *Store) GetUserBoard(ctx context.Context, userID int32, boardID string) (*storepb.BoardsUserSetting_Board, error) {
+	boards, err := s.GetUserBoards(ctx, userID)
+	if err != nil {
+		return nil, err
+	}
+	for _, board := range boards {
+		if board.GetId() == boardID {
+			clonedBoard, ok := proto.Clone(board).(*storepb.BoardsUserSetting_Board)
+			if !ok {
+				return nil, errors.New("failed to clone board")
+			}
+			return clonedBoard, nil
+		}
+	}
+	return nil, nil
+}
+
+// UpsertUserBoard adds or replaces (by id) a board for the user.
+func (s *Store) UpsertUserBoard(ctx context.Context, userID int32, board *storepb.BoardsUserSetting_Board) error {
+	s.boardsMu.Lock()
+	defer s.boardsMu.Unlock()
+
+	existing, err := s.GetUserBoards(ctx, userID)
+	if err != nil {
+		return errors.Wrap(err, "get existing boards")
+	}
+
+	boards := make([]*storepb.BoardsUserSetting_Board, 0, len(existing)+1)
+	replaced := false
+	for _, item := range existing {
+		if item.GetId() == board.GetId() {
+			boards = append(boards, board)
+			replaced = true
+		} else {
+			boards = append(boards, item)
+		}
+	}
+	if !replaced {
+		boards = append(boards, board)
+	}
+
+	if err := s.upsertUserBoards(ctx, userID, boards); err != nil {
+		return errors.Wrap(err, "upsert board")
+	}
+	return nil
+}
+
+// RemoveUserBoard removes the board with the given id.
+// It reports whether a matching board was found.
+func (s *Store) RemoveUserBoard(ctx context.Context, userID int32, boardID string) (bool, error) {
+	s.boardsMu.Lock()
+	defer s.boardsMu.Unlock()
+
+	existing, err := s.GetUserBoards(ctx, userID)
+	if err != nil {
+		return false, errors.Wrap(err, "get existing boards")
+	}
+
+	found := false
+	boards := make([]*storepb.BoardsUserSetting_Board, 0, len(existing))
+	for _, item := range existing {
+		if item.GetId() == boardID {
+			found = true
+			continue
+		}
+		boards = append(boards, item)
+	}
+	if !found {
+		return false, nil
+	}
+
+	if err := s.upsertUserBoards(ctx, userID, boards); err != nil {
+		return false, errors.Wrap(err, "remove board")
+	}
+	return true, nil
+}
+
+func (s *Store) upsertUserBoards(ctx context.Context, userID int32, boards []*storepb.BoardsUserSetting_Board) error {
+	_, err := s.UpsertUserSetting(ctx, &storepb.UserSetting{
+		UserId: userID,
+		Key:    storepb.UserSetting_BOARDS,
+		Value: &storepb.UserSetting_Boards{
+			Boards: &storepb.BoardsUserSetting{
+				Boards: boards,
+			},
+		},
+	})
+	return errors.Wrap(err, "upsert boards user setting")
+}
+
 func convertUserSettingFromRaw(raw *UserSetting) (*storepb.UserSetting, error) {
 	userSetting := &storepb.UserSetting{
 		UserId: raw.UserID,
@@ -628,6 +746,12 @@ func convertUserSettingFromRaw(raw *UserSetting) (*storepb.UserSetting, error) {
 			return nil, err
 		}
 		userSetting.Value = &storepb.UserSetting_Webhooks{Webhooks: webhooksUserSetting}
+	case storepb.UserSetting_BOARDS:
+		boardsUserSetting := &storepb.BoardsUserSetting{}
+		if err := protojsonUnmarshaler.Unmarshal([]byte(raw.Value), boardsUserSetting); err != nil {
+			return nil, errors.Wrap(err, "unmarshal boards user setting")
+		}
+		userSetting.Value = &storepb.UserSetting_Boards{Boards: boardsUserSetting}
 	default:
 		return nil, nil
 	}
@@ -681,6 +805,13 @@ func convertUserSettingToRaw(userSetting *storepb.UserSetting) (*UserSetting, er
 		value, err := protojson.Marshal(webhooksUserSetting)
 		if err != nil {
 			return nil, err
+		}
+		raw.Value = string(value)
+	case storepb.UserSetting_BOARDS:
+		boardsUserSetting := userSetting.GetBoards()
+		value, err := protojson.Marshal(boardsUserSetting)
+		if err != nil {
+			return nil, errors.Wrap(err, "marshal boards user setting")
 		}
 		raw.Value = string(value)
 	default:

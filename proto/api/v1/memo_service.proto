@@ -263,6 +263,11 @@ message Memo {
   // Optional. The location of the memo.
   optional Location location = 18 [(google.api.field_behavior) = OPTIONAL];
 
+  // Optional. The kanban card state of the memo.
+  // Settable via UpdateMemo with the "kanban" field mask path.
+  // An empty kanban message clears the card state.
+  optional Kanban kanban = 19 [(google.api.field_behavior) = OPTIONAL];
+
   // Computed properties of a memo.
   message Property {
     bool has_link = 1;
@@ -272,6 +277,18 @@ message Memo {
     // The title extracted from the first H1 heading, if present.
     string title = 5;
   }
+}
+
+message Kanban {
+  // The id of the board this memo belongs to.
+  string board_id = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // The id of the board column this memo sits in.
+  string column_id = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // The fractional ordering of the memo within the column.
+  // Insert between neighbors with the midpoint; append with max + 1.
+  double position = 3 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message Location {
@@ -326,7 +343,9 @@ message ListMemosRequest {
   //   visibility (string: PRIVATE | PROTECTED | PUBLIC),
   //   tags (list<string>; match with `"work" in tags`, not `tag == "work"`),
   //   has_task_list / has_link / has_code / has_incomplete_tasks (bool),
-  //   has_location (bool; true when the memo has a location attached).
+  //   has_location (bool; true when the memo has a location attached),
+  //   kanban_board / kanban_column (string), kanban_position (double),
+  //   has_kanban (bool; true when the memo is on a board).
   // Note: the time fields here are created_ts / updated_ts, which differ from
   // the create_time / update_time names used by order_by.
   // Examples:

@@ -168,7 +168,7 @@ func (r *renderer) renderComparison(cond *ComparisonCondition) (renderResult, er
 			return r.renderJSONBoolComparison(field, cond.Operator, cond.Right)
 		case FieldKindJSONExists:
 			return r.renderJSONExistsComparison(field, cond.Operator, cond.Right)
-		case FieldKindScalar:
+		case FieldKindScalar, FieldKindJSONScalar:
 			return r.renderScalarComparison(field, cond.Operator, cond.Right)
 		default:
 			return renderResult{}, errors.Errorf("field %q does not support comparison", field.Name)
@@ -316,6 +316,13 @@ func (r *renderer) renderScalarComparison(field Field, op ComparisonOperator, ri
 	}
 
 	columnExpr := field.columnExpr(r.dialect)
+	if field.Kind == FieldKindJSONScalar {
+		columnExpr = jsonExtractExpr(r.dialect, field)
+		if r.dialect == DialectPostgres && field.Type == FieldTypeDouble {
+			// The Postgres text accessor (->>) must be cast for numeric comparison.
+			columnExpr = fmt.Sprintf("(%s)::float8", columnExpr)
+		}
+	}
 	if lit == nil {
 		switch op {
 		case CompareEq:
@@ -339,6 +346,12 @@ func (r *renderer) renderScalarComparison(field Field, op ComparisonOperator, ri
 		num, err := toInt64(lit)
 		if err != nil {
 			return renderResult{}, errors.Wrapf(err, "field %q expects integer value", field.Name)
+		}
+		placeholder = r.addArg(num)
+	case FieldTypeDouble:
+		num, err := toFloat64(lit)
+		if err != nil {
+			return renderResult{}, errors.Wrapf(err, "field %q expects double value", field.Name)
 		}
 		placeholder = r.addArg(num)
 	default:
@@ -432,7 +445,7 @@ func (r *renderer) renderInCondition(cond *InCondition) (renderResult, error) {
 		return renderResult{}, errors.Errorf("unknown field %q", fieldRef.Name)
 	}
 
-	if field.Kind != FieldKindScalar {
+	if field.Kind != FieldKindScalar && field.Kind != FieldKindJSONScalar {
 		return renderResult{}, errors.Errorf("field %q does not support IN()", fieldRef.Name)
 	}
 
@@ -520,12 +533,21 @@ func (r *renderer) renderScalarInCondition(field Field, values []ValueExpr) (ren
 				return renderResult{}, err
 			}
 			placeholders = append(placeholders, r.addArg(num))
+		case FieldTypeDouble:
+			num, err := toFloat64(lit)
+			if err != nil {
+				return renderResult{}, err
+			}
+			placeholders = append(placeholders, r.addArg(num))
 		default:
 			return renderResult{}, errors.Errorf("field %q does not support IN() comparisons", field.Name)
 		}
 	}
 
 	column := field.columnExpr(r.dialect)
+	if field.Kind == FieldKindJSONScalar {
+		column = jsonExtractExpr(r.dialect, field)
+	}
 	return renderResult{
 		sql: fmt.Sprintf("%s IN (%s)", column, strings.Join(placeholders, ",")),
 	}, nil
@@ -890,6 +912,27 @@ func toInt64(value any) (int64, error) {
 		return int64(v), nil
 	default:
 		return 0, errors.Errorf("cannot convert %T to int64", value)
+	}
+}
+
+func toFloat64(value any) (float64, error) {
+	switch v := value.(type) {
+	case int:
+		return float64(v), nil
+	case int32:
+		return float64(v), nil
+	case int64:
+		return float64(v), nil
+	case uint32:
+		return float64(v), nil
+	case uint64:
+		return float64(v), nil
+	case float32:
+		return float64(v), nil
+	case float64:
+		return v, nil
+	default:
+		return 0, errors.Errorf("cannot convert %T to float64", value)
 	}
 }
 

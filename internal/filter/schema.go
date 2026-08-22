@@ -22,6 +22,7 @@ type FieldType string
 const (
 	FieldTypeString    FieldType = "string"
 	FieldTypeInt       FieldType = "int"
+	FieldTypeDouble    FieldType = "double"
 	FieldTypeBool      FieldType = "bool"
 	FieldTypeTimestamp FieldType = "timestamp"
 )
@@ -34,7 +35,9 @@ const (
 	FieldKindBoolColumn FieldKind = "bool_column"
 	FieldKindJSONBool   FieldKind = "json_bool"
 	// FieldKindJSONExists represents a boolean derived from the presence of a non-null JSON value.
-	FieldKindJSONExists   FieldKind = "json_exists"
+	FieldKindJSONExists FieldKind = "json_exists"
+	// FieldKindJSONScalar represents a scalar value extracted from a JSON column.
+	FieldKindJSONScalar   FieldKind = "json_scalar"
 	FieldKindJSONList     FieldKind = "json_list"
 	FieldKindVirtualAlias FieldKind = "virtual_alias"
 )
@@ -240,6 +243,46 @@ func NewSchema() Schema {
 				CompareNeq: true,
 			},
 		},
+		"kanban_board": {
+			Name:     "kanban_board",
+			Kind:     FieldKindJSONScalar,
+			Type:     FieldTypeString,
+			Column:   Column{Table: "memo", Name: "payload"},
+			JSONPath: []string{"kanban", "boardId"},
+			AllowedComparisonOps: map[ComparisonOperator]bool{
+				CompareEq:  true,
+				CompareNeq: true,
+			},
+		},
+		"kanban_column": {
+			Name:     "kanban_column",
+			Kind:     FieldKindJSONScalar,
+			Type:     FieldTypeString,
+			Column:   Column{Table: "memo", Name: "payload"},
+			JSONPath: []string{"kanban", "columnId"},
+			AllowedComparisonOps: map[ComparisonOperator]bool{
+				CompareEq:  true,
+				CompareNeq: true,
+			},
+		},
+		"kanban_position": {
+			Name:     "kanban_position",
+			Kind:     FieldKindJSONScalar,
+			Type:     FieldTypeDouble,
+			Column:   Column{Table: "memo", Name: "payload"},
+			JSONPath: []string{"kanban", "position"},
+		},
+		"has_kanban": {
+			Name:     "has_kanban",
+			Kind:     FieldKindJSONExists,
+			Type:     FieldTypeBool,
+			Column:   Column{Table: "memo", Name: "payload"},
+			JSONPath: []string{"kanban"},
+			AllowedComparisonOps: map[ComparisonOperator]bool{
+				CompareEq:  true,
+				CompareNeq: true,
+			},
+		},
 	}
 
 	envOptions := []cel.EnvOption{
@@ -257,6 +300,10 @@ func NewSchema() Schema {
 		cel.Variable("has_code", cel.BoolType),
 		cel.Variable("has_incomplete_tasks", cel.BoolType),
 		cel.Variable("has_location", cel.BoolType),
+		cel.Variable("kanban_board", cel.StringType),
+		cel.Variable("kanban_column", cel.StringType),
+		cel.Variable("kanban_position", cel.DoubleType),
+		cel.Variable("has_kanban", cel.BoolType),
 		cel.Variable("now", cel.TimestampType),
 		ext.Sets(),
 		cel.ASTValidators(cel.ValidateRegexLiterals()),

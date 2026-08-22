@@ -10,6 +10,7 @@ import (
 	"github.com/labstack/echo/v5"
 	"github.com/pkg/errors"
 	"golang.org/x/sync/semaphore"
+	"google.golang.org/protobuf/encoding/protojson"
 
 	"github.com/usememos/memos/internal/httpgetter"
 	"github.com/usememos/memos/internal/markdown"
@@ -33,6 +34,7 @@ type APIV1Service struct {
 	v1pb.UnimplementedAttachmentServiceServer
 	v1pb.UnimplementedAIServiceServer
 	v1pb.UnimplementedMemoViewServiceServer
+	v1pb.UnimplementedBoardServiceServer
 	v1pb.UnimplementedIdentityProviderServiceServer
 
 	Secret                  string
@@ -85,8 +87,12 @@ func NewAPIV1Service(secret string, profile *profile.Profile, store *store.Store
 func newGatewayMarshaler() *runtime.HTTPBodyMarshaler {
 	return &runtime.HTTPBodyMarshaler{
 		Marshaler: &runtime.JSONPb{
-			EmitDefaultValues: true,
-			DiscardUnknown:    true,
+			MarshalOptions: protojson.MarshalOptions{
+				EmitDefaultValues: true,
+			},
+			UnmarshalOptions: protojson.UnmarshalOptions{
+				DiscardUnknown: true,
+			},
 		},
 	}
 }
@@ -156,6 +162,9 @@ func (s *APIV1Service) RegisterGateway(ctx context.Context, echoServer *echo.Ech
 		return err
 	}
 	if err := v1pb.RegisterMemoViewServiceHandlerServer(ctx, gwMux, s); err != nil {
+		return err
+	}
+	if err := v1pb.RegisterBoardServiceHandlerServer(ctx, gwMux, s); err != nil {
 		return err
 	}
 	if err := v1pb.RegisterIdentityProviderServiceHandlerServer(ctx, gwMux, s); err != nil {

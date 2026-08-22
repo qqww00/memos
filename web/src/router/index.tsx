@@ -26,6 +26,8 @@ const PermissionDenied = lazyWithReload(() => import("@/pages/PermissionDenied")
 const Attachments = lazyWithReload(() => import("@/pages/Attachments"));
 const Setting = lazyWithReload(() => import("@/pages/Setting"));
 const MemoViews = lazyWithReload(() => import("@/pages/MemoViews"));
+const Boards = lazyWithReload(() => import("@/pages/Boards"));
+const BoardDetail = lazyWithReload(() => import("@/pages/BoardDetail"));
 const SignIn = lazyWithReload(() => import("@/pages/SignIn"));
 const SignUp = lazyWithReload(() => import("@/pages/SignUp"));
 const UserProfile = lazyWithReload(() => import("@/pages/UserProfile"));
@@ -91,7 +93,10 @@ export const routeConfig: RouteObject[] = [
                   { path: Routes.ARCHIVED, element: <Archived /> },
                   {
                     element: <RequireFullInitializationRoute />,
-                    children: [{ path: Routes.VIEWS, element: <MemoViews /> }],
+                    children: [
+                      { path: Routes.VIEWS, element: <MemoViews /> },
+                      { path: Routes.BOARDS, element: <Boards /> },
+                    ],
                   },
                 ],
               },
@@ -105,6 +110,7 @@ export const routeConfig: RouteObject[] = [
               {
                 element: <RequireFullInitializationRoute />,
                 children: [
+                  { path: "/boards/:boardId", element: <BoardDetail /> },
                   { path: Routes.ATTACHMENTS, element: <Attachments /> },
                   { path: Routes.INBOX, element: <Inboxes /> },
                   { path: Routes.SETTING, element: <Setting /> },

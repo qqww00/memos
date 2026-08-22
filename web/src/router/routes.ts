@@ -5,6 +5,7 @@ export const ROUTES = {
   INBOX: "/inbox",
   ARCHIVED: "/archived",
   VIEWS: "/views",
+  BOARDS: "/boards",
   SETTING: "/setting",
   EXPLORE: "/explore",
   AUTH: "/auth",

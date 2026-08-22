@@ -48,6 +48,7 @@ func (s *APIV1Service) convertMemoFromStoreWithCreators(ctx context.Context, mem
 		memoMessage.Tags = memo.Payload.Tags
 		memoMessage.Property = convertMemoPropertyFromStore(memo.Payload.Property)
 		memoMessage.Location = convertLocationFromStore(memo.Payload.Location)
+		memoMessage.Kanban = convertKanbanFromStore(memo.Payload.Kanban)
 	}
 
 	if memo.ParentUID != nil {
@@ -343,6 +344,28 @@ func convertLocationToStore(location *v1pb.Location) *storepb.MemoPayload_Locati
 		Placeholder: location.Placeholder,
 		Latitude:    location.Latitude,
 		Longitude:   location.Longitude,
+	}
+}
+
+func convertKanbanFromStore(kanban *storepb.MemoPayload_KanbanPayload) *v1pb.Kanban {
+	if kanban == nil {
+		return nil
+	}
+	return &v1pb.Kanban{
+		BoardId:  kanban.BoardId,
+		ColumnId: kanban.ColumnId,
+		Position: kanban.Position,
+	}
+}
+
+func convertKanbanToStore(kanban *v1pb.Kanban) *storepb.MemoPayload_KanbanPayload {
+	if kanban == nil {
+		return nil
+	}
+	return &storepb.MemoPayload_KanbanPayload{
+		BoardId:  kanban.BoardId,
+		ColumnId: kanban.ColumnId,
+		Position: kanban.Position,
 	}
 }
 

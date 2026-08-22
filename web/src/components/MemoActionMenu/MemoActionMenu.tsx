@@ -1,3 +1,4 @@
+import { create } from "@bufbuild/protobuf";
 import {
   ArchiveIcon,
   ArchiveRestoreIcon,
@@ -7,25 +8,32 @@ import {
   CopyIcon,
   Edit3Icon,
   FileTextIcon,
+  KanbanIcon,
   LinkIcon,
   ListChecksIcon,
   ListRestartIcon,
   MoreVerticalIcon,
   TrashIcon,
+  XIcon,
 } from "lucide-react";
 import { useState } from "react";
+import toast from "react-hot-toast";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Button } from "@/components/ui/button";
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuSeparator,
   DropdownMenuSub,
   DropdownMenuSubContent,
   DropdownMenuSubTrigger,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
+import { boardIdFromName, useBoards, useUpdateMemoKanban } from "@/hooks/useBoardQueries";
+import type { Board, BoardColumn } from "@/types/proto/api/v1/board_service_pb";
 import { State } from "@/types/proto/api/v1/common_pb";
+import { KanbanSchema } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 import { useMemoActionHandlers } from "./hooks";
 import type { MemoActionMenuProps } from "./types";
@@ -42,6 +50,39 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
   const isArchived = memo.state === State.ARCHIVED;
   const canMutateTasks = !readonly && !isArchived && Boolean(memo.property?.hasTaskList);
   const hasOpenTasks = Boolean(memo.property?.hasIncompleteTasks);
+
+  // Board state
+  const { data: boards = [] } = useBoards();
+  const updateMemoKanban = useUpdateMemoKanban();
+
+  const handleAssignToBoard = async (board: Board, col: BoardColumn) => {
+    try {
+      const boardId = boardIdFromName(board.name);
+      await updateMemoKanban.mutateAsync({
+        name: memo.name,
+        kanban: create(KanbanSchema, {
+          boardId,
+          columnId: col.id,
+          position: Date.now(),
+        }),
+      });
+      toast.success(t("boards.added-to-board"));
+    } catch {
+      toast.error("Failed to add memo to board");
+    }
+  };
+
+  const handleRemoveFromBoard = async () => {
+    try {
+      await updateMemoKanban.mutateAsync({
+        name: memo.name,
+        kanban: undefined,
+      });
+      toast.success(t("boards.removed-from-board"));
+    } catch {
+      toast.error("Failed to remove memo from board");
+    }
+  };
 
   // Action handlers
   const {
@@ -80,6 +121,48 @@ const MemoActionMenu = (props: MemoActionMenuProps) => {
               {t("common.edit")}
             </DropdownMenuItem>
           </>
+        )}
+
+        {/* Board submenu (non-readonly, non-archived, non-comment) */}
+        {!readonly && !isArchived && !isComment && boards.length > 0 && (
+          <DropdownMenuSub>
+            <DropdownMenuSubTrigger>
+              <KanbanIcon className="w-4 h-auto" />
+              {memo.kanban?.boardId ? t("boards.move-to-board") : t("boards.add-memo-to-board")}
+            </DropdownMenuSubTrigger>
+            <DropdownMenuSubContent>
+              {memo.kanban?.boardId && (
+                <>
+                  <DropdownMenuItem onClick={handleRemoveFromBoard}>
+                    <XIcon className="w-4 h-auto" />
+                    {t("boards.remove-from-board")}
+                  </DropdownMenuItem>
+                  <DropdownMenuSeparator />
+                </>
+              )}
+              {boards.map((board) => {
+                const boardId = boardIdFromName(board.name);
+                return (
+                  <DropdownMenuSub key={board.name}>
+                    <DropdownMenuSubTrigger>
+                      <span className="truncate max-w-[140px]">{board.title}</span>
+                    </DropdownMenuSubTrigger>
+                    <DropdownMenuSubContent>
+                      {board.columns.map((col) => {
+                        const isCurrent = memo.kanban?.boardId === boardId && memo.kanban?.columnId === col.id;
+                        return (
+                          <DropdownMenuItem key={col.id} disabled={isCurrent} onClick={() => handleAssignToBoard(board, col)}>
+                            <span className="size-2 rounded-full mr-1 shrink-0" style={{ backgroundColor: col.colorHex || "#64748b" }} />
+                            <span className="truncate">{col.title}</span>
+                          </DropdownMenuItem>
+                        );
+                      })}
+                    </DropdownMenuSubContent>
+                  </DropdownMenuSub>
+                );
+              })}
+            </DropdownMenuSubContent>
+          </DropdownMenuSub>
         )}
 
         {/* Copy submenu (non-archived) */}

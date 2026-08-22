@@ -11,6 +11,9 @@ message MemoPayload {
 
   repeated string tags = 3;
 
+  // The kanban card state of the memo, if it is on a board.
+  KanbanPayload kanban = 4;
+
   // The calculated properties from the memo content.
   message Property {
     bool has_link = 1;
@@ -25,5 +28,15 @@ message MemoPayload {
     string placeholder = 1;
     double latitude = 2;
     double longitude = 3;
+  }
+
+  // The kanban card state. A memo is a card of at most one board at a time.
+  message KanbanPayload {
+    // The id of the board this memo belongs to.
+    string board_id = 1;
+    // The id of the board column this memo sits in.
+    string column_id = 2;
+    // The fractional ordering of the memo within the column.
+    double position = 3;
   }
 }

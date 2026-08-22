@@ -1,0 +1,146 @@
+syntax = "proto3";
+
+package memos.api.v1;
+
+import "google/api/annotations.proto";
+import "google/api/client.proto";
+import "google/api/field_behavior.proto";
+import "google/api/resource.proto";
+import "google/protobuf/empty.proto";
+import "google/protobuf/field_mask.proto";
+import "google/protobuf/timestamp.proto";
+
+option go_package = "gen/api/v1";
+
+service BoardService {
+  // ListBoards returns a user's kanban boards.
+  rpc ListBoards(ListBoardsRequest) returns (ListBoardsResponse) {
+    option (google.api.http) = {get: "/api/v1/{parent=users/*}/boards"};
+    option (google.api.method_signature) = "parent";
+  }
+
+  // GetBoard gets a board by name.
+  rpc GetBoard(GetBoardRequest) returns (Board) {
+    option (google.api.http) = {get: "/api/v1/{name=users/*/boards/*}"};
+    option (google.api.method_signature) = "name";
+  }
+
+  // CreateBoard creates a new board for a user.
+  rpc CreateBoard(CreateBoardRequest) returns (Board) {
+    option (google.api.http) = {
+      post: "/api/v1/{parent=users/*}/boards"
+      body: "board"
+    };
+    option (google.api.method_signature) = "parent,board";
+  }
+
+  // UpdateBoard updates a board for a user.
+  rpc UpdateBoard(UpdateBoardRequest) returns (Board) {
+    option (google.api.http) = {
+      patch: "/api/v1/{board.name=users/*/boards/*}"
+      body: "board"
+    };
+    option (google.api.method_signature) = "board,update_mask";
+  }
+
+  // DeleteBoard deletes a board for a user. Memos on the board have their
+  // kanban state cleared.
+  rpc DeleteBoard(DeleteBoardRequest) returns (google.protobuf.Empty) {
+    option (google.api.http) = {delete: "/api/v1/{name=users/*/boards/*}"};
+    option (google.api.method_signature) = "name";
+  }
+}
+
+message Board {
+  option (google.api.resource) = {
+    type: "memos.api.v1/Board"
+    pattern: "users/{user}/boards/{board}"
+    singular: "board"
+    plural: "boards"
+  };
+
+  // The resource name of the board.
+  // Format: users/{user}/boards/{board}
+  string name = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+  // The title of the board. Unique per user (case-insensitive).
+  string title = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // The ordered columns of the board. Order defines display order.
+  // A board must always keep at least one column.
+  repeated BoardColumn columns = 3 [(google.api.field_behavior) = OPTIONAL];
+
+  // Output only. The creation timestamp.
+  google.protobuf.Timestamp create_time = 4 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Output only. The last update timestamp.
+  google.protobuf.Timestamp update_time = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+}
+
+message BoardColumn {
+  // The id of the column. Assigned by the server on creation,
+  // stable across renames and reordering.
+  string id = 1 [(google.api.field_behavior) = IDENTIFIER];
+
+  // The title of the column.
+  string title = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // Optional hex color accent for the column, e.g. "#0969da".
+  string color_hex = 3 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message ListBoardsRequest {
+  // Required. The parent resource where boards are listed.
+  // Format: users/{user}
+  string parent = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {child_type: "memos.api.v1/Board"}
+  ];
+}
+
+message ListBoardsResponse {
+  // The list of boards.
+  repeated Board boards = 1;
+}
+
+message GetBoardRequest {
+  // Required. The resource name of the board to retrieve.
+  // Format: users/{user}/boards/{board}
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "memos.api.v1/Board"}
+  ];
+}
+
+message CreateBoardRequest {
+  // Required. The parent resource where this board will be created.
+  // Format: users/{user}
+  string parent = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {child_type: "memos.api.v1/Board"}
+  ];
+
+  // Required. The board to create. If no columns are provided, the board is
+  // seeded with default columns "Todo", "In Progress", "Done".
+  Board board = 2 [(google.api.field_behavior) = REQUIRED];
+
+  // Optional. If set, validate the request, but do not actually create the board.
+  bool validate_only = 3 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message UpdateBoardRequest {
+  // Required. The board resource which replaces the resource on the server.
+  Board board = 1 [(google.api.field_behavior) = REQUIRED];
+
+  // Optional. The list of fields to update. Supported paths: title, columns.
+  google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = OPTIONAL];
+}
+
+message DeleteBoardRequest {
+  // Required. The resource name of the board to delete.
+  // Format: users/{user}/boards/{board}
+  string name = 1 [
+    (google.api.field_behavior) = REQUIRED,
+    (google.api.resource_reference) = {type: "memos.api.v1/Board"}
+  ];
+}

@@ -8,6 +8,8 @@ describe("sidebar route content", () => {
     ["/explore", "explore"],
     ["/u/steven", "profile"],
     ["/views", "views"],
+    ["/boards", "boards"],
+    ["/boards/123", "boards"],
     ["/attachments", "attachments"],
     ["/inbox", "inbox"],
     ["/setting", "settings"],

@@ -11,6 +11,7 @@ import {
   HouseIcon,
   ImageIcon,
   InfoIcon,
+  KanbanIcon,
   LayoutListIcon,
   ListIcon,
   type LucideIcon,
@@ -497,6 +498,13 @@ const GlobalNavigation = () => {
 
   const items: GlobalNavItem[] = currentUser
     ? [
+        {
+          id: "boards",
+          label: t("common.boards"),
+          path: ROUTES.BOARDS,
+          icon: KanbanIcon,
+          active: location.pathname === ROUTES.BOARDS || location.pathname.startsWith("/boards/"),
+        },
         {
           id: "attachments",
           label: t("common.attachments"),

@@ -570,6 +570,53 @@ func (s *ConnectServiceHandler) DeleteMemoView(ctx context.Context, req *connect
 	return connect.NewResponse(resp), nil
 }
 
+// BoardService
+
+// ListBoards lists the kanban boards owned by a user.
+func (s *ConnectServiceHandler) ListBoards(ctx context.Context, req *connect.Request[v1pb.ListBoardsRequest]) (*connect.Response[v1pb.ListBoardsResponse], error) {
+	resp, err := s.APIV1Service.ListBoards(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// GetBoard returns a kanban board by resource name.
+func (s *ConnectServiceHandler) GetBoard(ctx context.Context, req *connect.Request[v1pb.GetBoardRequest]) (*connect.Response[v1pb.Board], error) {
+	resp, err := s.APIV1Service.GetBoard(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// CreateBoard creates a kanban board for a user.
+func (s *ConnectServiceHandler) CreateBoard(ctx context.Context, req *connect.Request[v1pb.CreateBoardRequest]) (*connect.Response[v1pb.Board], error) {
+	resp, err := s.APIV1Service.CreateBoard(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// UpdateBoard updates the selected fields of a kanban board.
+func (s *ConnectServiceHandler) UpdateBoard(ctx context.Context, req *connect.Request[v1pb.UpdateBoardRequest]) (*connect.Response[v1pb.Board], error) {
+	resp, err := s.APIV1Service.UpdateBoard(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
+// DeleteBoard deletes a kanban board by resource name.
+func (s *ConnectServiceHandler) DeleteBoard(ctx context.Context, req *connect.Request[v1pb.DeleteBoardRequest]) (*connect.Response[emptypb.Empty], error) {
+	resp, err := s.APIV1Service.DeleteBoard(ctx, req.Msg)
+	if err != nil {
+		return nil, convertGRPCError(err)
+	}
+	return connect.NewResponse(resp), nil
+}
+
 // IdentityProviderService
 
 func (s *ConnectServiceHandler) ListIdentityProviders(ctx context.Context, req *connect.Request[v1pb.ListIdentityProvidersRequest]) (*connect.Response[v1pb.ListIdentityProvidersResponse], error) {

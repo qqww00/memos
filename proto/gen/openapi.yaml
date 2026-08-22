@@ -665,7 +665,9 @@ paths:
                        visibility (string: PRIVATE | PROTECTED | PUBLIC),
                        tags (list<string>; match with `"work" in tags`, not `tag == "work"`),
                        has_task_list / has_link / has_code / has_incomplete_tasks (bool),
-                       has_location (bool; true when the memo has a location attached).
+                       has_location (bool; true when the memo has a location attached),
+                       kanban_board / kanban_column (string), kanban_position (double),
+                       has_kanban (bool; true when the memo is on a board).
                      Note: the time fields here are created_ts / updated_ts, which differ from
                      the create_time / update_time names used by order_by.
                      Examples:
@@ -1488,6 +1490,173 @@ paths:
                         application/json:
                             schema:
                                 $ref: '#/components/schemas/User'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/v1/users/{user}/boards:
+        get:
+            tags:
+                - BoardService
+            description: ListBoards returns a user's kanban boards.
+            operationId: BoardService_ListBoards
+            parameters:
+                - name: user
+                  in: path
+                  description: The user id.
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/ListBoardsResponse'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        post:
+            tags:
+                - BoardService
+            description: CreateBoard creates a new board for a user.
+            operationId: BoardService_CreateBoard
+            parameters:
+                - name: user
+                  in: path
+                  description: The user id.
+                  required: true
+                  schema:
+                    type: string
+                - name: validateOnly
+                  in: query
+                  description: Optional. If set, validate the request, but do not actually create the board.
+                  schema:
+                    type: boolean
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Board'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Board'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+    /api/v1/users/{user}/boards/{board}:
+        get:
+            tags:
+                - BoardService
+            description: GetBoard gets a board by name.
+            operationId: BoardService_GetBoard
+            parameters:
+                - name: user
+                  in: path
+                  description: The user id.
+                  required: true
+                  schema:
+                    type: string
+                - name: board
+                  in: path
+                  description: The board id.
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Board'
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        delete:
+            tags:
+                - BoardService
+            description: |-
+                DeleteBoard deletes a board for a user. Memos on the board have their
+                 kanban state cleared.
+            operationId: BoardService_DeleteBoard
+            parameters:
+                - name: user
+                  in: path
+                  description: The user id.
+                  required: true
+                  schema:
+                    type: string
+                - name: board
+                  in: path
+                  description: The board id.
+                  required: true
+                  schema:
+                    type: string
+            responses:
+                "200":
+                    description: OK
+                    content: {}
+                default:
+                    description: Default error response
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Status'
+        patch:
+            tags:
+                - BoardService
+            description: UpdateBoard updates a board for a user.
+            operationId: BoardService_UpdateBoard
+            parameters:
+                - name: user
+                  in: path
+                  description: The user id.
+                  required: true
+                  schema:
+                    type: string
+                - name: board
+                  in: path
+                  description: The board id.
+                  required: true
+                  schema:
+                    type: string
+                - name: updateMask
+                  in: query
+                  description: 'Optional. The list of fields to update. Supported paths: title, columns.'
+                  schema:
+                    type: string
+                    format: field-mask
+            requestBody:
+                content:
+                    application/json:
+                        schema:
+                            $ref: '#/components/schemas/Board'
+                required: true
+            responses:
+                "200":
+                    description: OK
+                    content:
+                        application/json:
+                            schema:
+                                $ref: '#/components/schemas/Board'
                 default:
                     description: Default error response
                     content:
@@ -2472,6 +2641,52 @@ components:
                     type: array
                     items:
                         $ref: '#/components/schemas/User'
+        Board:
+            required:
+                - title
+            type: object
+            properties:
+                name:
+                    type: string
+                    description: |-
+                        The resource name of the board.
+                         Format: users/{user}/boards/{board}
+                title:
+                    type: string
+                    description: The title of the board. Unique per user (case-insensitive).
+                columns:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/BoardColumn'
+                    description: |-
+                        The ordered columns of the board. Order defines display order.
+                         A board must always keep at least one column.
+                createTime:
+                    readOnly: true
+                    type: string
+                    description: Output only. The creation timestamp.
+                    format: date-time
+                updateTime:
+                    readOnly: true
+                    type: string
+                    description: Output only. The last update timestamp.
+                    format: date-time
+        BoardColumn:
+            required:
+                - title
+            type: object
+            properties:
+                id:
+                    type: string
+                    description: |-
+                        The id of the column. Assigned by the server on creation,
+                         stable across renames and reordering.
+                title:
+                    type: string
+                    description: The title of the column.
+                colorHex:
+                    type: string
+                    description: Optional hex color accent for the column, e.g. "#0969da".
         Color:
             type: object
             properties:
@@ -3058,6 +3273,24 @@ components:
                     type: string
                     description: size_bytes is the database size in bytes; -1 if unavailable.
             description: Database size statistics.
+        Kanban:
+            required:
+                - boardId
+                - columnId
+            type: object
+            properties:
+                boardId:
+                    type: string
+                    description: The id of the board this memo belongs to.
+                columnId:
+                    type: string
+                    description: The id of the board column this memo sits in.
+                position:
+                    type: number
+                    description: |-
+                        The fractional ordering of the memo within the column.
+                         Insert between neighbors with the midpoint; append with max + 1.
+                    format: double
         LinkMetadata:
             type: object
             properties:
@@ -3113,6 +3346,14 @@ components:
                     description: |-
                         A token that can be sent as `page_token` to retrieve the next page.
                          If this field is omitted, there are no subsequent pages.
+        ListBoardsResponse:
+            type: object
+            properties:
+                boards:
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Board'
+                    description: The list of boards.
         ListIdentityProvidersResponse:
             type: object
             properties:
@@ -3400,6 +3641,13 @@ components:
                     allOf:
                         - $ref: '#/components/schemas/Location'
                     description: Optional. The location of the memo.
+                kanban:
+                    allOf:
+                        - $ref: '#/components/schemas/Kanban'
+                    description: |-
+                        Optional. The kanban card state of the memo.
+                         Settable via UpdateMemo with the "kanban" field mask path.
+                         An empty kanban message clears the card state.
         MemoRelation:
             required:
                 - memo
@@ -4194,6 +4442,7 @@ tags:
     - name: AIService
     - name: AttachmentService
     - name: AuthService
+    - name: BoardService
     - name: IdentityProviderService
     - name: InstanceService
     - name: MemoService

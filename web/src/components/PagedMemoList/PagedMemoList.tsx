@@ -65,8 +65,9 @@ function useAutoFetchWhenNotScrollable({
   enabledRef.current = enabled;
 
   const isPageScrollable = useCallback(() => {
-    const documentHeight = Math.max(document.body.scrollHeight, document.documentElement.scrollHeight);
-    return documentHeight > window.innerHeight + 100;
+    if (typeof document === "undefined" || typeof window === "undefined") return true;
+    const documentHeight = Math.max(document.body?.scrollHeight ?? 0, document.documentElement?.scrollHeight ?? 0);
+    return documentHeight > (window.innerHeight ?? 0) + 100;
   }, []);
 
   const checkAndFetchIfNeeded = useCallback(async () => {

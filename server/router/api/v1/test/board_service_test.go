@@ -4,9 +4,11 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/stretchr/testify/require"
 	"google.golang.org/protobuf/types/known/fieldmaskpb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1pb "github.com/usememos/memos/proto/gen/api/v1"
 )
@@ -430,6 +432,79 @@ func TestKanbanCards(t *testing.T) {
 		require.NotNil(t, fetched.Kanban)
 		require.Equal(t, boardID, fetched.Kanban.BoardId)
 		require.Equal(t, colID, fetched.Kanban.ColumnId)
+	})
+
+	t.Run("extended kanban card fields (category, due_time, is_closed)", func(t *testing.T) {
+		ts := NewTestService(t)
+		defer ts.Cleanup()
+
+		user, err := ts.CreateRegularUser(ctx, "testuser")
+		require.NoError(t, err)
+		userCtx := ts.CreateUserContext(ctx, user.ID)
+		board := createTestBoard(t, ts, userCtx, user.Username, "Feature Board")
+		boardID := boardNameID(board.Name)
+		colID := board.Columns[0].Id
+
+		cat := "Bug"
+		color := "#ef4444"
+		dueTime := timestamppb.New(time.Now().Add(48 * time.Hour))
+		isClosed := true
+
+		memo, err := ts.Service.CreateMemo(userCtx, &v1pb.CreateMemoRequest{
+			Memo: &v1pb.Memo{
+				Content:    "Fix auth token race condition",
+				Visibility: v1pb.Visibility_PRIVATE,
+				Kanban: &v1pb.Kanban{
+					BoardId:          boardID,
+					ColumnId:         colID,
+					Position:         2.5,
+					Category:         &cat,
+					CategoryColorHex: &color,
+					Categories:       []string{"Bug", "Backend"},
+					DueTime:          dueTime,
+					IsClosed:         &isClosed,
+				},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, memo.Kanban)
+		require.Equal(t, "Bug", *memo.Kanban.Category)
+		require.Equal(t, []string{"Bug", "Backend"}, memo.Kanban.Categories)
+		require.Equal(t, "#ef4444", *memo.Kanban.CategoryColorHex)
+		require.True(t, *memo.Kanban.IsClosed)
+		require.NotNil(t, memo.Kanban.DueTime)
+
+		// Fetch and verify persistence
+		fetched, err := ts.Service.GetMemo(userCtx, &v1pb.GetMemoRequest{Name: memo.Name})
+		require.NoError(t, err)
+		require.NotNil(t, fetched.Kanban)
+		require.Equal(t, "Bug", *fetched.Kanban.Category)
+		require.Equal(t, []string{"Bug", "Backend"}, fetched.Kanban.Categories)
+		require.Equal(t, "#ef4444", *fetched.Kanban.CategoryColorHex)
+		require.True(t, *fetched.Kanban.IsClosed)
+
+		// Update to reopen and change category
+		reopened := false
+		newCat := "Feature"
+		updated, err := ts.Service.UpdateMemo(userCtx, &v1pb.UpdateMemoRequest{
+			Memo: &v1pb.Memo{
+				Name: memo.Name,
+				Kanban: &v1pb.Kanban{
+					BoardId:    boardID,
+					ColumnId:   colID,
+					Position:   2.5,
+					Category:   &newCat,
+					Categories: []string{"Feature", "UI"},
+					IsClosed:   &reopened,
+				},
+			},
+			UpdateMask: &fieldmaskpb.FieldMask{Paths: []string{"kanban"}},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, updated.Kanban)
+		require.Equal(t, "Feature", *updated.Kanban.Category)
+		require.Equal(t, []string{"Feature", "UI"}, updated.Kanban.Categories)
+		require.False(t, *updated.Kanban.IsClosed)
 	})
 }
 

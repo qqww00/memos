@@ -1,21 +1,23 @@
 import { create } from "@bufbuild/protobuf";
 import { useQuery } from "@tanstack/react-query";
-import { GlobeIcon, LockIcon, PlusIcon, SearchIcon, UsersIcon } from "lucide-react";
-import { useState } from "react";
+import { CalendarIcon, CheckIcon, GlobeIcon, LockIcon, PlusIcon, SearchIcon, TagIcon, UsersIcon, XIcon } from "lucide-react";
+import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Tabs, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
 import { memoServiceClient } from "@/connect";
-import { useCreateBoardMemo, useUpdateMemoKanban } from "@/hooks/useBoardQueries";
+import { useBoardCards, useCreateBoardMemo, useUpdateMemoKanban } from "@/hooks/useBoardQueries";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import type { BoardColumn } from "@/types/proto/api/v1/board_service_pb";
 import { KanbanSchema, ListMemosRequestSchema, type Memo, Visibility } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
+import { CATEGORY_PALETTE, getCardCategories, getCategoryColor } from "./cardUtils";
 
 interface AddMemoToBoardDialogProps {
   open: boolean;
@@ -40,7 +42,22 @@ export const AddMemoToBoardDialog = ({
   const [selectedColumnId, setSelectedColumnId] = useState(initialColumnId || columns[0]?.id || "");
   const [searchQuery, setSearchQuery] = useState("");
   const [newContent, setNewContent] = useState("");
+  const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
+  const [newCatInput, setNewCatInput] = useState("");
+  const [newCatColor, setNewCatColor] = useState(CATEGORY_PALETTE[0].value);
+  const [newDueDate, setNewDueDate] = useState("");
   const [newVisibility, setNewVisibility] = useState<Visibility>(Visibility.PRIVATE);
+
+  const { data: boardCards = [] } = useBoardCards(boardId, { enabled: !!boardId && open });
+  const availableBoardCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const card of boardCards) {
+      for (const c of getCardCategories(card.kanban)) {
+        set.add(c);
+      }
+    }
+    return Array.from(set);
+  }, [boardCards]);
 
   const updateMemoKanban = useUpdateMemoKanban();
   const createBoardMemo = useCreateBoardMemo(boardId);
@@ -66,6 +83,20 @@ export const AddMemoToBoardDialog = ({
     enabled: open && activeTab === "search" && !!currentUser,
   });
 
+  const toggleCategory = (cat: string) => {
+    setSelectedCategories((prev) => (prev.includes(cat) ? prev.filter((c) => c !== cat) : [...prev, cat]));
+  };
+
+  const handleAddNewCategory = (e?: React.FormEvent) => {
+    if (e) e.preventDefault();
+    const trimmed = newCatInput.trim();
+    if (!trimmed) return;
+    if (!selectedCategories.includes(trimmed)) {
+      setSelectedCategories((prev) => [...prev, trimmed]);
+    }
+    setNewCatInput("");
+  };
+
   const handleCreateMemo = async () => {
     const trimmed = newContent.trim();
     if (!trimmed || !currentColumnId) return;
@@ -74,14 +105,28 @@ export const AddMemoToBoardDialog = ({
     const lastPosition = columnCards.at(-1)?.kanban?.position ?? 0;
     const newPosition = lastPosition + 1.0;
 
+    let dueTimestamp: { seconds: bigint; nanos: number } | undefined;
+    if (newDueDate) {
+      const ms = new Date(newDueDate).getTime();
+      if (!Number.isNaN(ms)) {
+        dueTimestamp = { seconds: BigInt(Math.floor(ms / 1000)), nanos: 0 };
+      }
+    }
+
     try {
       await createBoardMemo.mutateAsync({
         content: trimmed,
         visibility: newVisibility,
         columnId: currentColumnId,
         position: newPosition,
+        categories: selectedCategories,
+        category: selectedCategories[0] || undefined,
+        categoryColorHex: selectedCategories[0] ? newCatColor : undefined,
+        dueTime: dueTimestamp,
       });
       setNewContent("");
+      setSelectedCategories([]);
+      setNewDueDate("");
       toast.success("Memo created");
       onOpenChange(false);
     } catch {
@@ -177,7 +222,7 @@ export const AddMemoToBoardDialog = ({
                 autoFocus
                 value={newContent}
                 onChange={(e) => setNewContent(e.target.value)}
-                placeholder="Write a memo..."
+                placeholder="Write a memo or task..."
                 rows={4}
                 className="resize-none text-sm"
                 onKeyDown={(e) => {
@@ -188,7 +233,150 @@ export const AddMemoToBoardDialog = ({
                 }}
               />
 
-              <div className="flex items-center justify-between gap-2 pt-1">
+              {/* Selected Categories Tags */}
+              {selectedCategories.length > 0 && (
+                <div className="flex flex-wrap gap-1.5 items-center">
+                  {selectedCategories.map((cat) => {
+                    const color = getCategoryColor(cat);
+                    return (
+                      <span
+                        key={cat}
+                        className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs font-medium"
+                        style={{
+                          backgroundColor: `${color}25`,
+                          color,
+                          border: `1px solid ${color}40`,
+                        }}
+                      >
+                        <span>{cat}</span>
+                        <button type="button" onClick={() => toggleCategory(cat)} className="hover:opacity-75 cursor-pointer ml-0.5">
+                          <XIcon className="size-3" />
+                        </button>
+                      </span>
+                    );
+                  })}
+                </div>
+              )}
+
+              {/* Category & Due date options */}
+              <div className="flex flex-wrap items-center gap-2 pt-1 border-t border-border/40 text-xs">
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <TagIcon className="size-3.5" />
+                        <span>{selectedCategories.length > 0 ? `${selectedCategories.length} categories` : "Categories"}</span>
+                      </Button>
+                    }
+                  />
+                  <PopoverContent align="start" className="w-64 p-3 space-y-2.5">
+                    <div className="text-xs font-semibold text-foreground">Categories</div>
+
+                    {/* Reusable categories list */}
+                    {availableBoardCategories.length > 0 && (
+                      <div className="space-y-1">
+                        <div className="text-[11px] text-muted-foreground">Board categories:</div>
+                        <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
+                          {availableBoardCategories.map((cat) => {
+                            const isSelected = selectedCategories.includes(cat);
+                            const color = getCategoryColor(cat);
+                            return (
+                              <button
+                                key={cat}
+                                type="button"
+                                onClick={() => toggleCategory(cat)}
+                                className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors cursor-pointer"
+                                style={{
+                                  backgroundColor: isSelected ? color : `${color}15`,
+                                  color: isSelected ? "#ffffff" : color,
+                                  border: `1px solid ${color}40`,
+                                }}
+                              >
+                                {isSelected && <CheckIcon className="size-3" />}
+                                <span>{cat}</span>
+                              </button>
+                            );
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    <form onSubmit={handleAddNewCategory} className="space-y-2 pt-1 border-t border-border/40">
+                      <div className="text-[11px] text-muted-foreground">Add new:</div>
+                      <div className="flex items-center gap-1.5">
+                        <Input
+                          value={newCatInput}
+                          onChange={(e) => setNewCatInput(e.target.value)}
+                          placeholder="Category name..."
+                          className="h-7 text-xs flex-1"
+                        />
+                        <Button type="submit" size="sm" variant="secondary" className="h-7 px-2 text-xs" disabled={!newCatInput.trim()}>
+                          <PlusIcon className="size-3" />
+                        </Button>
+                      </div>
+                      <div className="flex items-center gap-1.5 flex-wrap">
+                        {CATEGORY_PALETTE.map((c) => (
+                          <button
+                            key={c.value}
+                            type="button"
+                            onClick={() => setNewCatColor(c.value)}
+                            className="size-4 rounded-full border transition-transform hover:scale-110"
+                            style={{
+                              backgroundColor: c.value,
+                              borderColor: newCatColor === c.value ? "var(--color-primary)" : "transparent",
+                            }}
+                            title={c.label}
+                          />
+                        ))}
+                      </div>
+                    </form>
+                  </PopoverContent>
+                </Popover>
+
+                <Popover>
+                  <PopoverTrigger
+                    render={
+                      <Button
+                        variant="outline"
+                        size="sm"
+                        className="h-7 px-2.5 text-xs gap-1.5 text-muted-foreground hover:text-foreground"
+                      >
+                        <CalendarIcon className="size-3.5" />
+                        <span>{newDueDate ? new Date(newDueDate).toLocaleDateString() : "Due Date"}</span>
+                      </Button>
+                    }
+                  />
+                  <PopoverContent align="start" className="w-64 p-3 space-y-2">
+                    <label htmlFor="modal-due-date-input" className="text-xs font-medium text-foreground block">
+                      Due Date & Time
+                    </label>
+                    <Input
+                      id="modal-due-date-input"
+                      type="datetime-local"
+                      value={newDueDate}
+                      onChange={(e) => setNewDueDate(e.target.value)}
+                      className="h-8 text-xs"
+                    />
+                    {newDueDate && (
+                      <Button
+                        type="button"
+                        variant="ghost"
+                        size="sm"
+                        className="h-6 text-xs text-muted-foreground w-full"
+                        onClick={() => setNewDueDate("")}
+                      >
+                        Clear due date
+                      </Button>
+                    )}
+                  </PopoverContent>
+                </Popover>
+              </div>
+
+              <div className="flex items-center justify-between gap-2 pt-1 border-t border-border/50">
                 <DropdownMenu>
                   <DropdownMenuTrigger
                     render={

@@ -3291,6 +3291,24 @@ components:
                         The fractional ordering of the memo within the column.
                          Insert between neighbors with the midpoint; append with max + 1.
                     format: double
+                category:
+                    type: string
+                    description: Optional category label for this card on the board.
+                categoryColorHex:
+                    type: string
+                    description: Optional category badge color hex.
+                dueTime:
+                    type: string
+                    description: Optional target due time for this card.
+                    format: date-time
+                isClosed:
+                    type: boolean
+                    description: Whether this card is marked as closed/completed on the board.
+                categories:
+                    type: array
+                    items:
+                        type: string
+                    description: Multiple category labels for this card on the board.
         LinkMetadata:
             type: object
             properties:

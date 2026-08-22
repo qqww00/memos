@@ -11,15 +11,18 @@ import {
   useSensors,
 } from "@dnd-kit/core";
 import { arrayMove, horizontalListSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
-import { ArrowLeftIcon, KanbanIcon, PlusIcon } from "lucide-react";
+import { ArrowLeftIcon, CalendarIcon, CheckIcon, FilterIcon, KanbanIcon, PlusIcon, RotateCcwIcon, TagIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { AddMemoToBoardDialog, BOARD_COLUMN_COLORS, KanbanCard, KanbanColumn, MemoDetailDialog } from "@/components/Boards";
+import { getCardCategories, getCategoryColor } from "@/components/Boards/cardUtils";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { Label } from "@/components/ui/label";
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover";
 import {
   boardIdFromName,
   computeDropPosition,
@@ -31,8 +34,10 @@ import {
   useUpdateMemoKanban,
 } from "@/hooks/useBoardQueries";
 import { handleError } from "@/lib/error";
+import { cn } from "@/lib/utils";
 import { ROUTES } from "@/router/routes";
 import { BoardColumn, BoardColumnSchema } from "@/types/proto/api/v1/board_service_pb";
+import { State } from "@/types/proto/api/v1/common_pb";
 import { KanbanSchema, type Memo } from "@/types/proto/api/v1/memo_service_pb";
 import { useTranslate } from "@/utils/i18n";
 
@@ -41,13 +46,32 @@ export const BoardDetail = () => {
   const navigate = useNavigate();
   const { boardId = "" } = useParams();
 
+  // Filters state
+  const [filterStatus, setFilterStatus] = useState<"all" | "active" | "completed" | "archived">("all");
+  const [filterCategory, setFilterCategory] = useState<string | null>(null);
+  const [dueDateFrom, setDueDateFrom] = useState<string>("");
+  const [dueDateTo, setDueDateTo] = useState<string>("");
+
   const { data: boards = [], isLoading: isBoardsLoading } = useBoards();
-  const { data: cards = [], isLoading: isCardsLoading } = useBoardCards(boardId);
+  const { data: cards = [], isLoading: isCardsLoading } = useBoardCards(boardId, {
+    state: filterStatus === "archived" ? State.ARCHIVED : State.NORMAL,
+  });
 
   const updateBoard = useUpdateBoard();
   const updateMemoKanban = useUpdateMemoKanban();
 
   const board = useMemo(() => boards.find((b) => boardIdFromName(b.name) === boardId), [boards, boardId]);
+
+  // Extract unique categories across cards for filtering
+  const availableCategories = useMemo(() => {
+    const set = new Set<string>();
+    for (const card of cards) {
+      for (const c of getCardCategories(card.kanban)) {
+        set.add(c);
+      }
+    }
+    return Array.from(set);
+  }, [cards]);
 
   // Dialog states
   const [addColumnDialogOpen, setAddColumnDialogOpen] = useState(false);
@@ -72,10 +96,47 @@ export const BoardDetail = () => {
     }),
   );
 
+  const hasActiveFilters = filterStatus !== "all" || filterCategory !== null || Boolean(dueDateFrom) || Boolean(dueDateTo);
+
+  const handleClearAllFilters = () => {
+    setFilterStatus("all");
+    setFilterCategory(null);
+    setDueDateFrom("");
+    setDueDateTo("");
+  };
+
   const columnCardsMap = useMemo(() => {
     const columnIds = board?.columns.map((c) => c.id) || [];
-    return groupCardsByColumn(cards, columnIds);
-  }, [cards, board?.columns]);
+    const fromSec = dueDateFrom ? Math.floor(new Date(`${dueDateFrom}T00:00:00`).getTime() / 1000) : null;
+    const toSec = dueDateTo ? Math.floor(new Date(`${dueDateTo}T23:59:59`).getTime() / 1000) : null;
+
+    const filteredCards = cards.filter((memo) => {
+      // 1. Status Filter
+      if (filterStatus === "active") {
+        if (memo.kanban?.isClosed) return false;
+      } else if (filterStatus === "completed") {
+        if (!memo.kanban?.isClosed) return false;
+      }
+
+      // 2. Category Filter
+      if (filterCategory) {
+        const cats = getCardCategories(memo.kanban);
+        if (!cats.includes(filterCategory)) return false;
+      }
+
+      // 3. Due Date Range Filter
+      if (fromSec !== null || toSec !== null) {
+        const dueSec = memo.kanban?.dueTime ? Number(memo.kanban.dueTime.seconds) : null;
+        if (dueSec === null) return false;
+        if (fromSec !== null && dueSec < fromSec) return false;
+        if (toSec !== null && dueSec > toSec) return false;
+      }
+
+      return true;
+    });
+
+    return groupCardsByColumn(filteredCards, columnIds);
+  }, [cards, board?.columns, filterStatus, filterCategory, dueDateFrom, dueDateTo]);
 
   if (isBoardsLoading || isCardsLoading) {
     return (
@@ -297,7 +358,230 @@ export const BoardDetail = () => {
           </div>
         </div>
 
-        <div className="flex items-center gap-2">
+        {/* Filters & Actions Toolbar */}
+        <div className="flex flex-wrap items-center gap-2">
+          {/* 1. Status Filter Dropdown */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "gap-1.5 text-xs text-muted-foreground hover:text-foreground",
+                    filterStatus !== "all" && "border-primary/60 text-primary bg-primary/5",
+                  )}
+                >
+                  <FilterIcon className="size-3.5" />
+                  <span className="capitalize">
+                    {filterStatus === "all"
+                      ? "All cards"
+                      : filterStatus === "active"
+                        ? "Active only"
+                        : filterStatus === "completed"
+                          ? "Completed only"
+                          : "Archived"}
+                  </span>
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" size="sm">
+              <DropdownMenuItem onClick={() => setFilterStatus("all")}>All cards</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterStatus("active")}>Active only</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterStatus("completed")}>Completed only</DropdownMenuItem>
+              <DropdownMenuItem onClick={() => setFilterStatus("archived")}>Archived</DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* 2. Category Filter Dropdown (Separate) */}
+          <DropdownMenu>
+            <DropdownMenuTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "gap-1.5 text-xs text-muted-foreground hover:text-foreground",
+                    filterCategory && "border-primary/60 text-primary bg-primary/5",
+                  )}
+                >
+                  <TagIcon className="size-3.5" />
+                  <span className="truncate max-w-[110px]">{filterCategory ? filterCategory : "Category"}</span>
+                  {filterCategory && (
+                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(filterCategory) }} />
+                  )}
+                </Button>
+              }
+            />
+            <DropdownMenuContent align="end" size="sm" className="w-48 max-h-64 overflow-y-auto">
+              <DropdownMenuItem onClick={() => setFilterCategory(null)}>All categories</DropdownMenuItem>
+              {availableCategories.length === 0 ? (
+                <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">No categories</div>
+              ) : (
+                availableCategories.map((cat) => {
+                  const color = getCategoryColor(cat);
+                  const isSelected = filterCategory === cat;
+                  return (
+                    <DropdownMenuItem
+                      key={cat}
+                      onClick={() => setFilterCategory(isSelected ? null : cat)}
+                      className="flex items-center justify-between gap-1"
+                    >
+                      <div className="flex items-center gap-1.5 truncate">
+                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                        <span className="truncate">{cat}</span>
+                      </div>
+                      {isSelected && <CheckIcon className="size-3.5 text-primary shrink-0" />}
+                    </DropdownMenuItem>
+                  );
+                })
+              )}
+            </DropdownMenuContent>
+          </DropdownMenu>
+
+          {/* 3. Due Date Range Filter Popover (Separate) */}
+          <Popover>
+            <PopoverTrigger
+              render={
+                <Button
+                  variant="outline"
+                  size="sm"
+                  className={cn(
+                    "gap-1.5 text-xs text-muted-foreground hover:text-foreground",
+                    (dueDateFrom || dueDateTo) && "border-primary/60 text-primary bg-primary/5",
+                  )}
+                >
+                  <CalendarIcon className="size-3.5" />
+                  <span className="truncate max-w-[130px]">
+                    {dueDateFrom || dueDateTo ? `${dueDateFrom || "..."} → ${dueDateTo || "..."}` : "Due Date"}
+                  </span>
+                </Button>
+              }
+            />
+            <PopoverContent align="end" className="w-72 p-3 space-y-3">
+              <div className="flex items-center justify-between">
+                <span className="text-xs font-semibold text-foreground">Due Date Range</span>
+                {(dueDateFrom || dueDateTo) && (
+                  <button
+                    type="button"
+                    onClick={() => {
+                      setDueDateFrom("");
+                      setDueDateTo("");
+                    }}
+                    className="text-[11px] text-muted-foreground hover:text-foreground cursor-pointer"
+                  >
+                    Clear
+                  </button>
+                )}
+              </div>
+
+              <div className="grid grid-cols-2 gap-2 text-xs">
+                <div className="space-y-1">
+                  <Label htmlFor="filter-due-from" className="text-[11px] text-muted-foreground">
+                    From
+                  </Label>
+                  <Input
+                    id="filter-due-from"
+                    type="date"
+                    value={dueDateFrom}
+                    onChange={(e) => setDueDateFrom(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+                <div className="space-y-1">
+                  <Label htmlFor="filter-due-to" className="text-[11px] text-muted-foreground">
+                    To
+                  </Label>
+                  <Input
+                    id="filter-due-to"
+                    type="date"
+                    value={dueDateTo}
+                    onChange={(e) => setDueDateTo(e.target.value)}
+                    className="h-8 text-xs"
+                  />
+                </div>
+              </div>
+
+              {/* Quick Presets */}
+              <div className="flex flex-wrap gap-1 pt-1 border-t border-border/40">
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px]"
+                  onClick={() => {
+                    const today = new Date().toISOString().slice(0, 10);
+                    setDueDateFrom(today);
+                    setDueDateTo(today);
+                  }}
+                >
+                  Today
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px]"
+                  onClick={() => {
+                    const now = new Date();
+                    const day = now.getDay();
+                    const diffToMonday = now.getDate() - day + (day === 0 ? -6 : 1);
+                    const monday = new Date(now.setDate(diffToMonday));
+                    const sunday = new Date(monday);
+                    sunday.setDate(monday.getDate() + 6);
+                    setDueDateFrom(monday.toISOString().slice(0, 10));
+                    setDueDateTo(sunday.toISOString().slice(0, 10));
+                  }}
+                >
+                  This week
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px]"
+                  onClick={() => {
+                    const now = new Date();
+                    const startOfMonth = new Date(now.getFullYear(), now.getMonth(), 1);
+                    const endOfMonth = new Date(now.getFullYear(), now.getMonth() + 1, 0);
+                    setDueDateFrom(startOfMonth.toISOString().slice(0, 10));
+                    setDueDateTo(endOfMonth.toISOString().slice(0, 10));
+                  }}
+                >
+                  This month
+                </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="h-6 px-2 text-[11px] text-destructive hover:text-destructive"
+                  onClick={() => {
+                    const yesterday = new Date(Date.now() - 86400000).toISOString().slice(0, 10);
+                    setDueDateFrom("2000-01-01");
+                    setDueDateTo(yesterday);
+                  }}
+                >
+                  Overdue
+                </Button>
+              </div>
+            </PopoverContent>
+          </Popover>
+
+          {/* Reset Filters button if any active */}
+          {hasActiveFilters && (
+            <Button
+              variant="ghost"
+              size="icon-sm"
+              className="size-8 text-muted-foreground hover:text-foreground"
+              onClick={handleClearAllFilters}
+              title="Reset all filters"
+            >
+              <RotateCcwIcon className="size-3.5" />
+            </Button>
+          )}
+
+          <div className="h-4 w-px bg-border mx-0.5 hidden sm:block" />
+
           <Button variant="outline" size="sm" onClick={() => handleOpenAddMemo()}>
             <PlusIcon className="mr-1.5 size-3.5" />
             {t("boards.add-memo")}

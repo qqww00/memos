@@ -352,9 +352,14 @@ func convertKanbanFromStore(kanban *storepb.MemoPayload_KanbanPayload) *v1pb.Kan
 		return nil
 	}
 	return &v1pb.Kanban{
-		BoardId:  kanban.BoardId,
-		ColumnId: kanban.ColumnId,
-		Position: kanban.Position,
+		BoardId:          kanban.BoardId,
+		ColumnId:         kanban.ColumnId,
+		Position:         kanban.Position,
+		Category:         kanban.Category,
+		CategoryColorHex: kanban.CategoryColorHex,
+		DueTime:          kanban.DueTime,
+		IsClosed:         kanban.IsClosed,
+		Categories:       kanban.Categories,
 	}
 }
 
@@ -363,9 +368,14 @@ func convertKanbanToStore(kanban *v1pb.Kanban) *storepb.MemoPayload_KanbanPayloa
 		return nil
 	}
 	return &storepb.MemoPayload_KanbanPayload{
-		BoardId:  kanban.BoardId,
-		ColumnId: kanban.ColumnId,
-		Position: kanban.Position,
+		BoardId:          kanban.BoardId,
+		ColumnId:         kanban.ColumnId,
+		Position:         kanban.Position,
+		Category:         kanban.Category,
+		CategoryColorHex: kanban.CategoryColorHex,
+		DueTime:          kanban.DueTime,
+		IsClosed:         kanban.IsClosed,
+		Categories:       kanban.Categories,
 	}
 }
 

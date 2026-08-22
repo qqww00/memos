@@ -255,6 +255,8 @@ export function useUpdateMemo() {
       }
       // Invalidate user stats
       queryClient.invalidateQueries({ queryKey: userKeys.stats() });
+      // Invalidate boards
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
     },
   });
 }
@@ -274,6 +276,8 @@ export function useDeleteMemo() {
       queryClient.invalidateQueries({ queryKey: memoKeys.lists() });
       // Invalidate user stats
       queryClient.invalidateQueries({ queryKey: userKeys.stats() });
+      // Invalidate boards
+      queryClient.invalidateQueries({ queryKey: ["boards"] });
     },
   });
 }

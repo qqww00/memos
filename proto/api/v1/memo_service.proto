@@ -289,6 +289,21 @@ message Kanban {
   // The fractional ordering of the memo within the column.
   // Insert between neighbors with the midpoint; append with max + 1.
   double position = 3 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional category label for this card on the board.
+  optional string category = 4 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional category badge color hex.
+  optional string category_color_hex = 5 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional target due time for this card.
+  optional google.protobuf.Timestamp due_time = 6 [(google.api.field_behavior) = OPTIONAL];
+
+  // Whether this card is marked as closed/completed on the board.
+  optional bool is_closed = 7 [(google.api.field_behavior) = OPTIONAL];
+
+  // Multiple category labels for this card on the board.
+  repeated string categories = 8 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message Location {

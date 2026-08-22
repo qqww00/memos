@@ -9,6 +9,7 @@ package store
 import (
 	protoreflect "google.golang.org/protobuf/reflect/protoreflect"
 	protoimpl "google.golang.org/protobuf/runtime/protoimpl"
+	timestamppb "google.golang.org/protobuf/types/known/timestamppb"
 	reflect "reflect"
 	sync "sync"
 	unsafe "unsafe"
@@ -236,7 +237,17 @@ type MemoPayload_KanbanPayload struct {
 	// The id of the board column this memo sits in.
 	ColumnId string `protobuf:"bytes,2,opt,name=column_id,json=columnId,proto3" json:"column_id,omitempty"`
 	// The fractional ordering of the memo within the column.
-	Position      float64 `protobuf:"fixed64,3,opt,name=position,proto3" json:"position,omitempty"`
+	Position float64 `protobuf:"fixed64,3,opt,name=position,proto3" json:"position,omitempty"`
+	// The card category name.
+	Category *string `protobuf:"bytes,4,opt,name=category,proto3,oneof" json:"category,omitempty"`
+	// The card category color hex.
+	CategoryColorHex *string `protobuf:"bytes,5,opt,name=category_color_hex,json=categoryColorHex,proto3,oneof" json:"category_color_hex,omitempty"`
+	// The card due time.
+	DueTime *timestamppb.Timestamp `protobuf:"bytes,6,opt,name=due_time,json=dueTime,proto3,oneof" json:"due_time,omitempty"`
+	// Whether the card is closed.
+	IsClosed *bool `protobuf:"varint,7,opt,name=is_closed,json=isClosed,proto3,oneof" json:"is_closed,omitempty"`
+	// Multiple category labels.
+	Categories    []string `protobuf:"bytes,8,rep,name=categories,proto3" json:"categories,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -292,11 +303,46 @@ func (x *MemoPayload_KanbanPayload) GetPosition() float64 {
 	return 0
 }
 
+func (x *MemoPayload_KanbanPayload) GetCategory() string {
+	if x != nil && x.Category != nil {
+		return *x.Category
+	}
+	return ""
+}
+
+func (x *MemoPayload_KanbanPayload) GetCategoryColorHex() string {
+	if x != nil && x.CategoryColorHex != nil {
+		return *x.CategoryColorHex
+	}
+	return ""
+}
+
+func (x *MemoPayload_KanbanPayload) GetDueTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.DueTime
+	}
+	return nil
+}
+
+func (x *MemoPayload_KanbanPayload) GetIsClosed() bool {
+	if x != nil && x.IsClosed != nil {
+		return *x.IsClosed
+	}
+	return false
+}
+
+func (x *MemoPayload_KanbanPayload) GetCategories() []string {
+	if x != nil {
+		return x.Categories
+	}
+	return nil
+}
+
 var File_store_memo_proto protoreflect.FileDescriptor
 
 const file_store_memo_proto_rawDesc = "" +
 	"\n" +
-	"\x10store/memo.proto\x12\vmemos.store\"\xdb\x04\n" +
+	"\x10store/memo.proto\x12\vmemos.store\x1a\x1fgoogle/protobuf/timestamp.proto\"\xed\x06\n" +
 	"\vMemoPayload\x12=\n" +
 	"\bproperty\x18\x01 \x01(\v2!.memos.store.MemoPayload.PropertyR\bproperty\x12=\n" +
 	"\blocation\x18\x02 \x01(\v2!.memos.store.MemoPayload.LocationR\blocation\x12\x12\n" +
@@ -311,11 +357,23 @@ const file_store_memo_proto_rawDesc = "" +
 	"\bLocation\x12 \n" +
 	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\x12\x1a\n" +
 	"\blatitude\x18\x02 \x01(\x01R\blatitude\x12\x1c\n" +
-	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x1ac\n" +
+	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x1a\xf4\x02\n" +
 	"\rKanbanPayload\x12\x19\n" +
 	"\bboard_id\x18\x01 \x01(\tR\aboardId\x12\x1b\n" +
 	"\tcolumn_id\x18\x02 \x01(\tR\bcolumnId\x12\x1a\n" +
-	"\bposition\x18\x03 \x01(\x01R\bpositionB\x94\x01\n" +
+	"\bposition\x18\x03 \x01(\x01R\bposition\x12\x1f\n" +
+	"\bcategory\x18\x04 \x01(\tH\x00R\bcategory\x88\x01\x01\x121\n" +
+	"\x12category_color_hex\x18\x05 \x01(\tH\x01R\x10categoryColorHex\x88\x01\x01\x12:\n" +
+	"\bdue_time\x18\x06 \x01(\v2\x1a.google.protobuf.TimestampH\x02R\adueTime\x88\x01\x01\x12 \n" +
+	"\tis_closed\x18\a \x01(\bH\x03R\bisClosed\x88\x01\x01\x12\x1e\n" +
+	"\n" +
+	"categories\x18\b \x03(\tR\n" +
+	"categoriesB\v\n" +
+	"\t_categoryB\x15\n" +
+	"\x13_category_color_hexB\v\n" +
+	"\t_due_timeB\f\n" +
+	"\n" +
+	"_is_closedB\x94\x01\n" +
 	"\x0fcom.memos.storeB\tMemoProtoP\x01Z)github.com/usememos/memos/proto/gen/store\xa2\x02\x03MSX\xaa\x02\vMemos.Store\xca\x02\vMemos\\Store\xe2\x02\x17Memos\\Store\\GPBMetadata\xea\x02\fMemos::Storeb\x06proto3"
 
 var (
@@ -336,16 +394,18 @@ var file_store_memo_proto_goTypes = []any{
 	(*MemoPayload_Property)(nil),      // 1: memos.store.MemoPayload.Property
 	(*MemoPayload_Location)(nil),      // 2: memos.store.MemoPayload.Location
 	(*MemoPayload_KanbanPayload)(nil), // 3: memos.store.MemoPayload.KanbanPayload
+	(*timestamppb.Timestamp)(nil),     // 4: google.protobuf.Timestamp
 }
 var file_store_memo_proto_depIdxs = []int32{
 	1, // 0: memos.store.MemoPayload.property:type_name -> memos.store.MemoPayload.Property
 	2, // 1: memos.store.MemoPayload.location:type_name -> memos.store.MemoPayload.Location
 	3, // 2: memos.store.MemoPayload.kanban:type_name -> memos.store.MemoPayload.KanbanPayload
-	3, // [3:3] is the sub-list for method output_type
-	3, // [3:3] is the sub-list for method input_type
-	3, // [3:3] is the sub-list for extension type_name
-	3, // [3:3] is the sub-list for extension extendee
-	0, // [0:3] is the sub-list for field type_name
+	4, // 3: memos.store.MemoPayload.KanbanPayload.due_time:type_name -> google.protobuf.Timestamp
+	4, // [4:4] is the sub-list for method output_type
+	4, // [4:4] is the sub-list for method input_type
+	4, // [4:4] is the sub-list for extension type_name
+	4, // [4:4] is the sub-list for extension extendee
+	0, // [0:4] is the sub-list for field type_name
 }
 
 func init() { file_store_memo_proto_init() }
@@ -353,6 +413,7 @@ func file_store_memo_proto_init() {
 	if File_store_memo_proto != nil {
 		return
 	}
+	file_store_memo_proto_msgTypes[3].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{

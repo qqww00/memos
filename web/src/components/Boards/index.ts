@@ -3,6 +3,7 @@ export * from "./BoardCard";
 export * from "./BoardList";
 export * from "./ColumnHeader";
 export * from "./CreateBoardDialog";
+export * from "./cardUtils";
 export * from "./constants";
 export * from "./InlineCardCreator";
 export * from "./KanbanCard";

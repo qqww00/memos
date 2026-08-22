@@ -4,6 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { boardServiceClient, memoServiceClient } from "@/connect";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { type Board, type BoardColumn, BoardSchema } from "@/types/proto/api/v1/board_service_pb";
+import { State } from "@/types/proto/api/v1/common_pb";
 import { type Kanban, KanbanSchema, ListMemosRequestSchema, type Memo, MemoSchema, Visibility } from "@/types/proto/api/v1/memo_service_pb";
 
 // Query keys factory
@@ -11,7 +12,7 @@ export const boardKeys = {
   all: ["boards"] as const,
   lists: () => [...boardKeys.all, "list"] as const,
   list: (parent: string) => [...boardKeys.lists(), parent] as const,
-  cards: (boardId: string) => [...boardKeys.all, "cards", boardId] as const,
+  cards: (boardId: string, state?: State) => [...boardKeys.all, "cards", boardId, state ?? State.NORMAL] as const,
 };
 
 // boardIdFromName extracts the board id from a "users/{user}/boards/{board}" name.
@@ -151,16 +152,22 @@ export function useDeleteBoard() {
 }
 
 // useBoardCards lists all memos on a board, paging through every result.
-export function useBoardCards(boardId: string, options?: { enabled?: boolean }) {
+export function useBoardCards(boardId: string, options?: { state?: State; enabled?: boolean }) {
+  const state = options?.state;
   return useQuery({
-    queryKey: boardKeys.cards(boardId),
+    queryKey: boardKeys.cards(boardId, state),
     queryFn: async () => {
       const memos: Memo[] = [];
       let pageToken = "";
       const filter = `kanban_board == "${boardId}"`;
       do {
         const response = await memoServiceClient.listMemos(
-          create(ListMemosRequestSchema, { filter, pageToken, pageSize: 200 } as Record<string, unknown>),
+          create(ListMemosRequestSchema, {
+            filter,
+            pageToken,
+            pageSize: 200,
+            state: state ?? State.NORMAL,
+          } as Record<string, unknown>),
         );
         memos.push(...response.memos);
         pageToken = response.nextPageToken;
@@ -219,11 +226,21 @@ export function useCreateBoardMemo(boardId: string) {
       visibility = Visibility.PRIVATE,
       columnId,
       position,
+      category,
+      categoryColorHex,
+      categories,
+      dueTime,
+      isClosed,
     }: {
       content: string;
       visibility?: Visibility;
       columnId: string;
       position: number;
+      category?: string;
+      categoryColorHex?: string;
+      categories?: string[];
+      dueTime?: { seconds: bigint; nanos: number };
+      isClosed?: boolean;
     }) => {
       const memo = await memoServiceClient.createMemo({
         memo: create(MemoSchema, {
@@ -233,12 +250,27 @@ export function useCreateBoardMemo(boardId: string) {
             boardId,
             columnId,
             position,
+            category,
+            categoryColorHex,
+            categories: categories ?? (category ? [category] : []),
+            dueTime,
+            isClosed,
           }),
         } as Record<string, unknown>),
       });
       return memo;
     },
-    onMutate: async ({ content, visibility = Visibility.PRIVATE, columnId, position }) => {
+    onMutate: async ({
+      content,
+      visibility = Visibility.PRIVATE,
+      columnId,
+      position,
+      category,
+      categoryColorHex,
+      categories,
+      dueTime,
+      isClosed,
+    }) => {
       await queryClient.cancelQueries({ queryKey: boardKeys.cards(boardId) });
       const previousCards = queryClient.getQueryData<Memo[]>(boardKeys.cards(boardId)) || [];
       const tempName = `temp-${Date.now()}`;
@@ -250,6 +282,11 @@ export function useCreateBoardMemo(boardId: string) {
           boardId,
           columnId,
           position,
+          category,
+          categoryColorHex,
+          categories: categories ?? (category ? [category] : []),
+          dueTime,
+          isClosed,
         }),
         createTime: { seconds: BigInt(Math.floor(Date.now() / 1000)), nanos: 0 },
       } as Record<string, unknown>);

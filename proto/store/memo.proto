@@ -2,6 +2,8 @@ syntax = "proto3";
 
 package memos.store;
 
+import "google/protobuf/timestamp.proto";
+
 option go_package = "gen/store";
 
 message MemoPayload {
@@ -38,5 +40,15 @@ message MemoPayload {
     string column_id = 2;
     // The fractional ordering of the memo within the column.
     double position = 3;
+    // The card category name.
+    optional string category = 4;
+    // The card category color hex.
+    optional string category_color_hex = 5;
+    // The card due time.
+    optional google.protobuf.Timestamp due_time = 6;
+    // Whether the card is closed.
+    optional bool is_closed = 7;
+    // Multiple category labels.
+    repeated string categories = 8;
   }
 }

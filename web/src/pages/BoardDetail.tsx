@@ -15,7 +15,7 @@ import { ArrowLeftIcon, KanbanIcon, PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
 import { Link, useNavigate, useParams } from "react-router-dom";
-import { AddMemoToBoardDialog, BOARD_COLUMN_COLORS, KanbanCard, KanbanColumn } from "@/components/Boards";
+import { AddMemoToBoardDialog, BOARD_COLUMN_COLORS, KanbanCard, KanbanColumn, MemoDetailDialog } from "@/components/Boards";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { Input } from "@/components/ui/input";
@@ -55,6 +55,7 @@ export const BoardDetail = () => {
   const [newColumnColor, setNewColumnColor] = useState<string>(BOARD_COLUMN_COLORS[0].value);
   const [addMemoDialogOpen, setAddMemoDialogOpen] = useState(false);
   const [addMemoColumnId, setAddMemoColumnId] = useState<string>("");
+  const [selectedMemoName, setSelectedMemoName] = useState<string | null>(null);
 
   // Dragging state
   const [activeCard, setActiveCard] = useState<Memo | null>(null);
@@ -316,6 +317,7 @@ export const BoardDetail = () => {
             {board.columns.map((column, idx) => (
               <KanbanColumn
                 key={column.id}
+                boardId={boardId}
                 column={column}
                 cards={columnCardsMap.get(column.id) || []}
                 canMoveLeft={idx > 0}
@@ -327,6 +329,7 @@ export const BoardDetail = () => {
                 onMoveRight={() => handleMoveColumn(idx, "right")}
                 onDelete={() => handleDeleteColumn(column.id)}
                 onAddMemo={() => handleOpenAddMemo(column.id)}
+                onSelectCard={(memo) => setSelectedMemoName(memo.name)}
                 parentPage={`/boards/${boardId}`}
               />
             ))}
@@ -426,6 +429,16 @@ export const BoardDetail = () => {
         columns={board.columns}
         initialColumnId={addMemoColumnId}
         existingColumnCards={columnCardsMap}
+      />
+
+      {/* Memo Detail Popup Modal */}
+      <MemoDetailDialog
+        memoName={selectedMemoName}
+        open={!!selectedMemoName}
+        onOpenChange={(open) => {
+          if (!open) setSelectedMemoName(null);
+        }}
+        parentPage={`/boards/${boardId}`}
       />
     </div>
   );

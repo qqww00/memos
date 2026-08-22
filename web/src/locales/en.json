@@ -1006,6 +1006,8 @@
     "select-board": "Select board",
     "select-column": "Select column",
     "added-to-board": "Added to board",
-    "removed-from-board": "Removed from board"
+    "removed-from-board": "Removed from board",
+    "add-existing-memo": "Add existing memo",
+    "create-memo": "Create memo"
   }
 }

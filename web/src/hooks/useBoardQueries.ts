@@ -4,7 +4,7 @@ import { useMutation, useQuery, useQueryClient } from "@tanstack/react-query";
 import { boardServiceClient, memoServiceClient } from "@/connect";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { type Board, type BoardColumn, BoardSchema } from "@/types/proto/api/v1/board_service_pb";
-import { type Kanban, KanbanSchema, ListMemosRequestSchema, type Memo, MemoSchema } from "@/types/proto/api/v1/memo_service_pb";
+import { type Kanban, KanbanSchema, ListMemosRequestSchema, type Memo, MemoSchema, Visibility } from "@/types/proto/api/v1/memo_service_pb";
 
 // Query keys factory
 export const boardKeys = {
@@ -205,6 +205,70 @@ export function useUpdateMemoKanban() {
     },
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: boardKeys.all });
+      queryClient.invalidateQueries({ queryKey: ["memos"] });
+    },
+  });
+}
+
+export function useCreateBoardMemo(boardId: string) {
+  const queryClient = useQueryClient();
+
+  return useMutation({
+    mutationFn: async ({
+      content,
+      visibility = Visibility.PRIVATE,
+      columnId,
+      position,
+    }: {
+      content: string;
+      visibility?: Visibility;
+      columnId: string;
+      position: number;
+    }) => {
+      const memo = await memoServiceClient.createMemo({
+        memo: create(MemoSchema, {
+          content,
+          visibility,
+          kanban: create(KanbanSchema, {
+            boardId,
+            columnId,
+            position,
+          }),
+        } as Record<string, unknown>),
+      });
+      return memo;
+    },
+    onMutate: async ({ content, visibility = Visibility.PRIVATE, columnId, position }) => {
+      await queryClient.cancelQueries({ queryKey: boardKeys.cards(boardId) });
+      const previousCards = queryClient.getQueryData<Memo[]>(boardKeys.cards(boardId)) || [];
+      const tempName = `temp-${Date.now()}`;
+      const optimisticMemo = create(MemoSchema, {
+        name: tempName,
+        content,
+        visibility,
+        kanban: create(KanbanSchema, {
+          boardId,
+          columnId,
+          position,
+        }),
+        createTime: { seconds: BigInt(Math.floor(Date.now() / 1000)), nanos: 0 },
+      } as Record<string, unknown>);
+
+      queryClient.setQueryData<Memo[]>(boardKeys.cards(boardId), [...previousCards, optimisticMemo as Memo]);
+      return { previousCards, tempName };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousCards) {
+        queryClient.setQueryData(boardKeys.cards(boardId), context.previousCards);
+      }
+    },
+    onSuccess: (newMemo, _vars, context) => {
+      const current = queryClient.getQueryData<Memo[]>(boardKeys.cards(boardId)) || [];
+      queryClient.setQueryData<Memo[]>(
+        boardKeys.cards(boardId),
+        current.map((m) => (m.name === context?.tempName ? newMemo : m)),
+      );
+      queryClient.invalidateQueries({ queryKey: boardKeys.cards(boardId) });
       queryClient.invalidateQueries({ queryKey: ["memos"] });
     },
   });

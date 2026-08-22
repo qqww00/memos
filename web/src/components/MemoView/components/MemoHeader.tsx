@@ -23,14 +23,18 @@ const MemoHeader: React.FC<MemoHeaderProps> = ({ showCreator, showVisibility, sh
   const t = useTranslate();
   const [reactionSelectorOpen, setReactionSelectorOpen] = useState(false);
 
-  const { memo, creator, currentUser, parentPage, isArchived, readonly, openEditor } = useMemoViewContext();
+  const { memo, creator, currentUser, parentPage, isArchived, readonly, openEditor, onGotoDetail } = useMemoViewContext();
   const { createTime, updateTime, displayTime: memoDisplayTime, isDisplayingUpdatedTime, relativeTimeFormat } = useMemoViewDerived();
   const { newMemoName } = useNewMemo();
 
   const navigateTo = useNavigateTo();
   const handleGotoMemoDetailPage = useCallback(() => {
+    if (onGotoDetail) {
+      onGotoDetail();
+      return;
+    }
     navigateTo(`/${memo.name}`, { state: { from: parentPage } });
-  }, [memo.name, parentPage, navigateTo]);
+  }, [memo.name, parentPage, navigateTo, onGotoDetail]);
 
   const { unpinMemo } = useMemoActions(memo);
 

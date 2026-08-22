@@ -130,6 +130,12 @@ func (s *APIV1Service) CreateMemo(ctx context.Context, request *v1pb.CreateMemoR
 	if request.Memo.Location != nil {
 		create.Payload.Location = convertLocationToStore(request.Memo.Location)
 	}
+	if request.Memo.Kanban != nil && request.Memo.Kanban.GetBoardId() != "" {
+		if err := s.validateKanbanTarget(ctx, user.ID, request.Memo.Kanban); err != nil {
+			return nil, err
+		}
+		create.Payload.Kanban = convertKanbanToStore(request.Memo.Kanban)
+	}
 
 	preparedAttachments, err := s.prepareMemoAttachments(ctx, user, create, request.Memo.Attachments)
 	if err != nil {

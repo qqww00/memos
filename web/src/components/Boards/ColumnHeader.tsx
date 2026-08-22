@@ -42,6 +42,7 @@ interface ColumnHeaderProps {
   onMoveRight: () => void;
   onDelete: () => void;
   onAddMemo: () => void;
+  onCreateMemo?: () => void;
 }
 
 export const ColumnHeader = ({
@@ -57,6 +58,7 @@ export const ColumnHeader = ({
   onMoveRight,
   onDelete,
   onAddMemo,
+  onCreateMemo,
 }: ColumnHeaderProps) => {
   const t = useTranslate();
   const [renameDialogOpen, setRenameDialogOpen] = useState(false);
@@ -97,7 +99,7 @@ export const ColumnHeader = ({
           variant="ghost"
           size="icon-sm"
           className="size-6 text-muted-foreground hover:text-foreground"
-          onClick={onAddMemo}
+          onClick={onCreateMemo || onAddMemo}
           aria-label={t("boards.add-memo")}
         >
           <PlusIcon className="size-3.5" />

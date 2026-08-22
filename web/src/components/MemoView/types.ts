@@ -10,6 +10,7 @@ export interface MemoViewProps {
   parentPage?: string;
   shareImageDialogOpen?: boolean;
   onShareImageDialogOpenChange?: (open: boolean) => void;
+  onGotoDetail?: () => void;
 }
 
 export interface MemoHeaderProps {

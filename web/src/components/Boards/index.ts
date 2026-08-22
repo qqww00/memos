@@ -4,5 +4,7 @@ export * from "./BoardList";
 export * from "./ColumnHeader";
 export * from "./CreateBoardDialog";
 export * from "./constants";
+export * from "./InlineCardCreator";
 export * from "./KanbanCard";
 export * from "./KanbanColumn";
+export * from "./MemoDetailDialog";

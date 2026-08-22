@@ -395,6 +395,42 @@ func TestKanbanCards(t *testing.T) {
 		require.Nil(t, got.Kanban)
 		require.Equal(t, "card one", got.Content)
 	})
+
+	t.Run("create memo directly with kanban payload", func(t *testing.T) {
+		ts := NewTestService(t)
+		defer ts.Cleanup()
+
+		user, err := ts.CreateRegularUser(ctx, "testuser")
+		require.NoError(t, err)
+		userCtx := ts.CreateUserContext(ctx, user.ID)
+
+		board := createTestBoard(t, ts, userCtx, user.Username, "Direct Create Board")
+		boardID := boardNameID(board.Name)
+		colID := board.Columns[0].Id
+
+		memo, err := ts.Service.CreateMemo(userCtx, &v1pb.CreateMemoRequest{
+			Memo: &v1pb.Memo{
+				Content: "direct kanban memo",
+				Kanban: &v1pb.Kanban{
+					BoardId:  boardID,
+					ColumnId: colID,
+					Position: 1.0,
+				},
+			},
+		})
+		require.NoError(t, err)
+		require.NotNil(t, memo.Kanban)
+		require.Equal(t, boardID, memo.Kanban.BoardId)
+		require.Equal(t, colID, memo.Kanban.ColumnId)
+		require.Equal(t, 1.0, memo.Kanban.Position)
+
+		// Fetch again to verify persistence
+		fetched, err := ts.Service.GetMemo(userCtx, &v1pb.GetMemoRequest{Name: memo.Name})
+		require.NoError(t, err)
+		require.NotNil(t, fetched.Kanban)
+		require.Equal(t, boardID, fetched.Kanban.BoardId)
+		require.Equal(t, colID, fetched.Kanban.ColumnId)
+	})
 }
 
 // boardNameID extracts the board id from a "users/{user}/boards/{board}" name.

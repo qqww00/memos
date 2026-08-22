@@ -101,6 +101,7 @@ const MemoView: React.FC<MemoViewProps> = (props: MemoViewProps) => {
       openEditor,
       toggleBlurVisibility,
       openPreview,
+      onGotoDetail: props.onGotoDetail,
     }),
     [
       memoData,
@@ -115,6 +116,7 @@ const MemoView: React.FC<MemoViewProps> = (props: MemoViewProps) => {
       openEditor,
       toggleBlurVisibility,
       openPreview,
+      props.onGotoDetail,
     ],
   );
 

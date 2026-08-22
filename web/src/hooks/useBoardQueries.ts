@@ -113,7 +113,23 @@ export function useUpdateBoard() {
       });
       return updatedBoard;
     },
-    onSuccess: () => {
+    onMutate: async ({ board }) => {
+      await queryClient.cancelQueries({ queryKey: boardKeys.lists() });
+      const previousBoards = queryClient.getQueryData<Board[]>(boardKeys.lists());
+      if (previousBoards && board.name) {
+        queryClient.setQueryData<Board[]>(
+          boardKeys.lists(),
+          previousBoards.map((b) => (b.name === board.name ? ({ ...b, ...board } as Board) : b)),
+        );
+      }
+      return { previousBoards };
+    },
+    onError: (_err, _vars, context) => {
+      if (context?.previousBoards) {
+        queryClient.setQueryData(boardKeys.lists(), context.previousBoards);
+      }
+    },
+    onSettled: () => {
       queryClient.invalidateQueries({ queryKey: boardKeys.lists() });
     },
   });

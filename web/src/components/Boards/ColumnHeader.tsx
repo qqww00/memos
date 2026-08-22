@@ -1,4 +1,14 @@
-import { ArrowLeftIcon, ArrowRightIcon, CheckIcon, MoreHorizontalIcon, PaletteIcon, PencilIcon, PlusIcon, Trash2Icon } from "lucide-react";
+import {
+  ArrowLeftIcon,
+  ArrowRightIcon,
+  CheckIcon,
+  GripVerticalIcon,
+  MoreHorizontalIcon,
+  PaletteIcon,
+  PencilIcon,
+  PlusIcon,
+  Trash2Icon,
+} from "lucide-react";
 import { useState } from "react";
 import ConfirmDialog from "@/components/ConfirmDialog";
 import { Badge } from "@/components/ui/badge";
@@ -25,6 +35,7 @@ interface ColumnHeaderProps {
   canMoveLeft: boolean;
   canMoveRight: boolean;
   canDelete: boolean;
+  dragHandleProps?: Record<string, unknown>;
   onRename: (title: string) => void;
   onRecolor: (colorHex: string) => void;
   onMoveLeft: () => void;
@@ -39,6 +50,7 @@ export const ColumnHeader = ({
   canMoveLeft,
   canMoveRight,
   canDelete,
+  dragHandleProps,
   onRename,
   onRecolor,
   onMoveLeft,
@@ -66,7 +78,11 @@ export const ColumnHeader = ({
 
   return (
     <div className="flex items-center justify-between gap-2 px-1 py-1">
-      <div className="flex min-w-0 items-center gap-2">
+      <div
+        {...dragHandleProps}
+        className="flex min-w-0 flex-1 items-center gap-1.5 cursor-grab active:cursor-grabbing select-none touch-none rounded-md px-1 py-0.5 -mx-1 hover:bg-background/50 transition-colors"
+      >
+        <GripVerticalIcon className="size-3.5 shrink-0 text-muted-foreground/40 hover:text-foreground" />
         <span className="size-2.5 shrink-0 rounded-full" style={{ backgroundColor: column.colorHex || "#64748b" }} />
         <h3 className="truncate text-sm font-semibold text-foreground" title={column.title}>
           {column.title}

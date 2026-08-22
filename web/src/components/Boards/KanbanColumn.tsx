@@ -1,5 +1,5 @@
-import { useDroppable } from "@dnd-kit/core";
-import { SortableContext, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
+import { CSS } from "@dnd-kit/utilities";
 import { PlusIcon } from "lucide-react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
@@ -15,6 +15,7 @@ interface KanbanColumnProps {
   canMoveLeft: boolean;
   canMoveRight: boolean;
   canDelete: boolean;
+  isOverlay?: boolean;
   onRename: (title: string) => void;
   onRecolor: (colorHex: string) => void;
   onMoveLeft: () => void;
@@ -30,6 +31,7 @@ export const KanbanColumn = ({
   canMoveLeft,
   canMoveRight,
   canDelete,
+  isOverlay = false,
   onRename,
   onRecolor,
   onMoveLeft,
@@ -39,22 +41,30 @@ export const KanbanColumn = ({
   parentPage,
 }: KanbanColumnProps) => {
   const t = useTranslate();
-  const { setNodeRef, isOver } = useDroppable({
+  const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
     id: column.id,
     data: {
       type: "column",
+      column,
       columnId: column.id,
     },
+    disabled: isOverlay,
+    animateLayoutChanges: () => false,
   });
 
   const cardIds = cards.map((c) => c.name);
+  const style: React.CSSProperties = {
+    transform: CSS.Translate.toString(transform),
+  };
 
   return (
     <div
       ref={setNodeRef}
+      style={style}
       className={cn(
-        "flex h-full w-80 shrink-0 flex-col rounded-xl border border-border/70 bg-muted/40 p-2.5 transition-colors",
-        isOver && "border-primary/50 bg-primary/5",
+        "flex h-full w-80 shrink-0 flex-col rounded-xl border border-border/70 bg-muted/40 p-2.5",
+        isDragging && "opacity-30 border-primary/50",
+        isOverlay && "shadow-2xl ring-2 ring-primary/50 bg-muted z-50 opacity-95",
       )}
     >
       <ColumnHeader
@@ -63,6 +73,7 @@ export const KanbanColumn = ({
         canMoveLeft={canMoveLeft}
         canMoveRight={canMoveRight}
         canDelete={canDelete}
+        dragHandleProps={{ ...attributes, ...listeners }}
         onRename={onRename}
         onRecolor={onRecolor}
         onMoveLeft={onMoveLeft}

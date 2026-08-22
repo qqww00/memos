@@ -10,7 +10,7 @@ import {
   useSensor,
   useSensors,
 } from "@dnd-kit/core";
-import { sortableKeyboardCoordinates } from "@dnd-kit/sortable";
+import { arrayMove, horizontalListSortingStrategy, SortableContext, sortableKeyboardCoordinates } from "@dnd-kit/sortable";
 import { ArrowLeftIcon, KanbanIcon, PlusIcon } from "lucide-react";
 import { useMemo, useState } from "react";
 import toast from "react-hot-toast";
@@ -58,6 +58,7 @@ export const BoardDetail = () => {
 
   // Dragging state
   const [activeCard, setActiveCard] = useState<Memo | null>(null);
+  const [activeColumn, setActiveColumn] = useState<BoardColumn | null>(null);
 
   const sensors = useSensors(
     useSensor(PointerSensor, {
@@ -96,16 +97,42 @@ export const BoardDetail = () => {
   }
 
   const handleDragStart = (event: DragStartEvent) => {
-    const memoName = String(event.active.id);
-    const card = cards.find((c) => c.name === memoName);
-    setActiveCard(card || null);
+    const activeData = event.active.data.current;
+    if (activeData?.type === "column") {
+      const col = board.columns.find((c) => c.id === event.active.id);
+      setActiveColumn(col || null);
+      setActiveCard(null);
+    } else {
+      const memoName = String(event.active.id);
+      const card = cards.find((c) => c.name === memoName);
+      setActiveCard(card || null);
+      setActiveColumn(null);
+    }
   };
 
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveCard(null);
+    setActiveColumn(null);
 
     if (!over) return;
+
+    const activeData = active.data.current;
+
+    // Handle column reorder drag
+    if (activeData?.type === "column") {
+      const activeColId = String(active.id);
+      const overColId = over.data.current?.columnId || String(over.id);
+      if (activeColId && overColId && activeColId !== overColId) {
+        const oldIndex = board.columns.findIndex((c) => c.id === activeColId);
+        const newIndex = board.columns.findIndex((c) => c.id === overColId);
+        if (oldIndex !== -1 && newIndex !== -1 && oldIndex !== newIndex) {
+          const reordered = arrayMove(board.columns, oldIndex, newIndex);
+          void handleUpdateColumns(reordered);
+        }
+      }
+      return;
+    }
 
     const activeMemoName = String(active.id);
     const activeMemo = cards.find((c) => c.name === activeMemoName);
@@ -285,23 +312,25 @@ export const BoardDetail = () => {
       {/* Horizontal Board Columns Container */}
       <div className="flex flex-1 items-start gap-4 overflow-x-auto p-4 sm:p-6 [scrollbar-width:thin]">
         <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-          {board.columns.map((column, idx) => (
-            <KanbanColumn
-              key={column.id}
-              column={column}
-              cards={columnCardsMap.get(column.id) || []}
-              canMoveLeft={idx > 0}
-              canMoveRight={idx < board.columns.length - 1}
-              canDelete={board.columns.length > 1}
-              onRename={(title) => handleRenameColumn(column.id, title)}
-              onRecolor={(color) => handleRecolorColumn(column.id, color)}
-              onMoveLeft={() => handleMoveColumn(idx, "left")}
-              onMoveRight={() => handleMoveColumn(idx, "right")}
-              onDelete={() => handleDeleteColumn(column.id)}
-              onAddMemo={() => handleOpenAddMemo(column.id)}
-              parentPage={`/boards/${boardId}`}
-            />
-          ))}
+          <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
+            {board.columns.map((column, idx) => (
+              <KanbanColumn
+                key={column.id}
+                column={column}
+                cards={columnCardsMap.get(column.id) || []}
+                canMoveLeft={idx > 0}
+                canMoveRight={idx < board.columns.length - 1}
+                canDelete={board.columns.length > 1}
+                onRename={(title) => handleRenameColumn(column.id, title)}
+                onRecolor={(color) => handleRecolorColumn(column.id, color)}
+                onMoveLeft={() => handleMoveColumn(idx, "left")}
+                onMoveRight={() => handleMoveColumn(idx, "right")}
+                onDelete={() => handleDeleteColumn(column.id)}
+                onAddMemo={() => handleOpenAddMemo(column.id)}
+                parentPage={`/boards/${boardId}`}
+              />
+            ))}
+          </SortableContext>
 
           {/* New Column Button Placeholder */}
           <div className="flex w-80 shrink-0 flex-col">
@@ -316,7 +345,24 @@ export const BoardDetail = () => {
           </div>
 
           <DragOverlay dropAnimation={null}>
-            {activeCard ? <KanbanCard memo={activeCard} columnId={activeCard.kanban?.columnId || ""} isOverlay /> : null}
+            {activeColumn ? (
+              <KanbanColumn
+                column={activeColumn}
+                cards={columnCardsMap.get(activeColumn.id) || []}
+                canMoveLeft={false}
+                canMoveRight={false}
+                canDelete={false}
+                onRename={() => {}}
+                onRecolor={() => {}}
+                onMoveLeft={() => {}}
+                onMoveRight={() => {}}
+                onDelete={() => {}}
+                onAddMemo={() => {}}
+                isOverlay
+              />
+            ) : activeCard ? (
+              <KanbanCard memo={activeCard} columnId={activeCard.kanban?.columnId || ""} isOverlay />
+            ) : null}
           </DragOverlay>
         </DndContext>
       </div>

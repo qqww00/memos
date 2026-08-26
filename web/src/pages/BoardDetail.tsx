@@ -126,13 +126,19 @@ export const BoardDetail = () => {
 
   // Extract unique categories across cards for filtering
   const availableCategories = useMemo(() => {
-    const set = new Set<string>();
+    const map = new Map<string, string>();
     for (const card of cards) {
-      for (const c of getCardCategories(card.kanban)) {
-        set.add(c);
+      if (card.kanban) {
+        for (const c of getCardCategories(card.kanban)) {
+          if (!map.has(c)) {
+            const cardColor =
+              card.kanban.category === c && card.kanban.categoryColorHex ? card.kanban.categoryColorHex : getCategoryColor(c);
+            map.set(c, cardColor);
+          }
+        }
       }
     }
-    return Array.from(set);
+    return Array.from(map.entries()).map(([name, color]) => ({ name, color }));
   }, [cards]);
 
   // Extract unique milestones across cards for filtering & milestone tracking
@@ -624,7 +630,13 @@ export const BoardDetail = () => {
                   <TagIcon className="size-3.5" />
                   <span className="truncate max-w-[110px]">{filterCategory ? filterCategory : "Category"}</span>
                   {filterCategory && (
-                    <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: getCategoryColor(filterCategory) }} />
+                    <span
+                      className="size-2 rounded-full shrink-0"
+                      style={{
+                        backgroundColor:
+                          availableCategories.find((c) => c.name === filterCategory)?.color || getCategoryColor(filterCategory),
+                      }}
+                    />
                   )}
                 </Button>
               }
@@ -634,18 +646,17 @@ export const BoardDetail = () => {
               {availableCategories.length === 0 ? (
                 <div className="px-2 py-1.5 text-xs text-muted-foreground text-center">No categories</div>
               ) : (
-                availableCategories.map((cat) => {
-                  const color = getCategoryColor(cat);
-                  const isSelected = filterCategory === cat;
+                availableCategories.map((item) => {
+                  const isSelected = filterCategory === item.name;
                   return (
                     <DropdownMenuItem
-                      key={cat}
-                      onClick={() => setFilterCategory(isSelected ? null : cat)}
+                      key={item.name}
+                      onClick={() => setFilterCategory(isSelected ? null : item.name)}
                       className="flex items-center justify-between gap-1"
                     >
                       <div className="flex items-center gap-1.5 truncate">
-                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
-                        <span className="truncate">{cat}</span>
+                        <span className="size-2 rounded-full shrink-0" style={{ backgroundColor: item.color }} />
+                        <span className="truncate">{item.name}</span>
                       </div>
                       {isSelected && <CheckIcon className="size-3.5 text-primary shrink-0" />}
                     </DropdownMenuItem>

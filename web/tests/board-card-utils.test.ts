@@ -58,6 +58,8 @@ describe("cardUtils", () => {
       expect(result?.isOverdue).toBe(false);
       expect(result?.progress).toBe(50);
       expect(result?.colorClass).toBe("bg-primary");
+      // Formatted due date should not contain hours/minutes (no colon)
+      expect(result?.formattedDue).not.toMatch(/\d+:\d+/);
     });
   });
 

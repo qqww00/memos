@@ -228,7 +228,8 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
           )}
 
           {categories.map((cat) => {
-            const color = getCategoryColor(cat, memo.kanban?.categoryColorHex);
+            const isPrimary = memo.kanban?.category === cat;
+            const color = getCategoryColor(cat, isPrimary ? memo.kanban?.categoryColorHex : undefined);
             return (
               <span
                 key={cat}

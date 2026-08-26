@@ -3,7 +3,8 @@ import { getSidebarRouteKind } from "@/components/AppSidebar/routes";
 
 describe("sidebar route content", () => {
   it.each([
-    ["/", "home"],
+    ["/", "boards"],
+    ["/timeline", "home"],
     ["/archived", "archived"],
     ["/explore", "explore"],
     ["/u/steven", "profile"],

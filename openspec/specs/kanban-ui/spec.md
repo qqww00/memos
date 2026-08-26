@@ -66,3 +66,22 @@ The system SHALL code-split the boards pages so `@dnd-kit` and board components 
 #### Scenario: Main bundle unaffected
 - **WHEN** the app is built and the user never visits `/boards`
 - **THEN** `@dnd-kit` modules are not present in the entry chunk
+
+### Requirement: Dropdown selectors for board categories and milestones with color indicators
+The system SHALL provide dropdown selectors in the card detail dialog for selecting existing board categories (multi-select) and board milestones (single-select), each displaying a right-aligned color indicator for every option.
+
+#### Scenario: Select category from dropdown in card detail
+- **WHEN** the user opens the categories dropdown in the card detail dialog
+- **THEN** the dropdown shows available board categories with checkmarks for selected ones and color dots on the right of each item
+
+#### Scenario: Select milestone from dropdown in card detail
+- **WHEN** the user opens the milestones dropdown in the card detail dialog
+- **THEN** the dropdown displays available board milestones with a clear option, active selection checkmark, and right-aligned milestone color dots
+
+### Requirement: Revamped Add memo dialog with 2-column layout matching view memo
+The system SHALL provide an Add Memo dialog in Kanban/Board with a two-column widescreen layout matching the card view dialog, featuring a markdown editor with formatting tools, engineering templates, and live preview on the left, and an INFO panel with column selection, status, categories, milestone, and due date progress on the right.
+
+#### Scenario: Open Add Memo dialog in Kanban board
+- **WHEN** the user triggers Add Memo in a Kanban board
+- **THEN** the two-column dialog opens with markdown editing on the left and full card metadata configuration on the right
+

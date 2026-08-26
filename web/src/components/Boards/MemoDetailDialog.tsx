@@ -6,6 +6,7 @@ import {
   CalendarIcon,
   CheckCircle2Icon,
   CheckIcon,
+  ChevronDownIcon,
   CircleIcon,
   ExternalLinkIcon,
   PlusIcon,
@@ -23,6 +24,7 @@ import { MentionResolutionProvider } from "@/components/MemoContent/MentionResol
 import MemoView from "@/components/MemoView";
 import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
 import { useBoardCards, useUpdateMemoKanban } from "@/hooks/useBoardQueries";
 import { useInfiniteMemoComments, useMemo as useMemoQuery, useUpdateMemo } from "@/hooks/useMemoQueries";
@@ -138,10 +140,10 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     const dueSec = memo.kanban?.dueTime ? Number(memo.kanban.dueTime.seconds) : undefined;
     if (dueSec) {
       const date = new Date(dueSec * 1000);
-      // Format to local YYYY-MM-DDTHH:mm
+      // Format to local YYYY-MM-DD
       const pad = (n: number) => n.toString().padStart(2, "0");
-      const localIso = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`;
-      setDueDateDraft(localIso);
+      const localDate = `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`;
+      setDueDateDraft(localDate);
     } else {
       setDueDateDraft("");
     }
@@ -175,8 +177,14 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     if (origColor !== currentColor) return true;
 
     const origDueSec = memo.kanban.dueTime ? Number(memo.kanban.dueTime.seconds) : 0;
-    const draftDueSec = dueDateDraft ? Math.floor(new Date(dueDateDraft).getTime() / 1000) : 0;
-    if (origDueSec !== draftDueSec) return true;
+    const origDateStr = origDueSec
+      ? (() => {
+          const d = new Date(origDueSec * 1000);
+          const pad = (n: number) => n.toString().padStart(2, "0");
+          return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+        })()
+      : "";
+    if (origDateStr !== (dueDateDraft || "")) return true;
 
     return false;
   }, [memo?.kanban, isClosedDraft, milestoneDraft, categoriesDraft, categoryColorMap, newCatColor, dueDateDraft]);
@@ -229,9 +237,7 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     if (dueSec) {
       const date = new Date(dueSec * 1000);
       const pad = (n: number) => n.toString().padStart(2, "0");
-      setDueDateDraft(
-        `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}T${pad(date.getHours())}:${pad(date.getMinutes())}`,
-      );
+      setDueDateDraft(`${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`);
     } else {
       setDueDateDraft("");
     }
@@ -243,7 +249,9 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
 
     let dueTimestamp: { seconds: bigint; nanos: number } | undefined;
     if (dueDateDraft) {
-      const ms = new Date(dueDateDraft).getTime();
+      const [year, month, day] = dueDateDraft.split("-").map(Number);
+      const targetDate = new Date(year, month - 1, day, 23, 59, 59);
+      const ms = targetDate.getTime();
       if (!Number.isNaN(ms)) {
         dueTimestamp = { seconds: BigInt(Math.floor(ms / 1000)), nanos: 0 };
       }
@@ -301,7 +309,12 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     }
   };
 
-  const draftDueSec = dueDateDraft ? Math.floor(new Date(dueDateDraft).getTime() / 1000) : undefined;
+  const draftDueSec = dueDateDraft
+    ? (() => {
+        const [year, month, day] = dueDateDraft.split("-").map(Number);
+        return Math.floor(new Date(year, month - 1, day, 23, 59, 59).getTime() / 1000);
+      })()
+    : undefined;
   const createSec = memo.createTime ? Number(memo.createTime.seconds) : undefined;
   const deadline = computeDeadlineProgress(createSec, draftDueSec);
 
@@ -446,32 +459,54 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
                     })}
                   </div>
 
-                  {/* Reusable categories from board */}
+                  {/* Reusable categories dropdown */}
                   {availableBoardCategories.length > 0 && (
                     <div className="space-y-1 pt-1">
-                      <div className="text-[11px] text-muted-foreground">Board categories (click to toggle):</div>
-                      <div className="flex flex-wrap gap-1 max-h-28 overflow-y-auto">
-                        {availableBoardCategories.map((item) => {
-                          const isSelected = categoriesDraft.includes(item.name);
-                          const color = resolveCategoryColor(item.name) || item.color;
-                          return (
-                            <button
-                              key={item.name}
+                      <div className="text-[11px] text-muted-foreground">Board categories:</div>
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
                               type="button"
-                              onClick={() => handleToggleCategory(item.name, item.color)}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-all cursor-pointer"
-                              style={{
-                                backgroundColor: isSelected ? color : `${color}15`,
-                                color: isSelected ? "#ffffff" : color,
-                                border: `1px solid ${color}40`,
-                              }}
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-between h-7 px-2 text-xs text-muted-foreground hover:text-foreground font-normal"
                             >
-                              {isSelected && <CheckIcon className="size-3" />}
-                              <span>{item.name}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                              <span className="truncate">Select from board...</span>
+                              <ChevronDownIcon className="size-3.5 opacity-60 ml-1 shrink-0" />
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
+                          {availableBoardCategories.map((item) => {
+                            const isSelected = categoriesDraft.includes(item.name);
+                            const color = resolveCategoryColor(item.name) || item.color;
+                            return (
+                              <DropdownMenuItem
+                                key={item.name}
+                                onClick={(e) => {
+                                  e.preventDefault();
+                                  handleToggleCategory(item.name, item.color);
+                                }}
+                                className="flex items-center justify-between gap-2 cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1 truncate">
+                                  <span
+                                    className={cn(
+                                      "size-3.5 flex items-center justify-center rounded border text-[10px] shrink-0",
+                                      isSelected ? "bg-primary border-primary text-primary-foreground" : "border-muted-foreground/40",
+                                    )}
+                                  >
+                                    {isSelected && <CheckIcon className="size-2.5 stroke-[3]" />}
+                                  </span>
+                                  <span className="truncate">{item.name}</span>
+                                </div>
+                                <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   )}
 
@@ -552,32 +587,62 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
                     </div>
                   )}
 
-                  {/* Board Milestones Suggestions */}
+                  {/* Board Milestones Dropdown */}
                   {availableBoardMilestones.length > 0 && (
                     <div className="space-y-1">
                       <div className="text-[11px] text-muted-foreground">Board milestones:</div>
-                      <div className="flex flex-wrap gap-1 max-h-24 overflow-y-auto">
-                        {availableBoardMilestones.map((m) => {
-                          const isSelected = milestoneDraft === m;
-                          const color = getMilestoneColor(m);
-                          return (
-                            <button
-                              key={m}
+                      <DropdownMenu>
+                        <DropdownMenuTrigger
+                          render={
+                            <Button
                               type="button"
-                              onClick={() => setMilestoneDraft(isSelected ? "" : m)}
-                              className="inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs transition-colors cursor-pointer"
-                              style={{
-                                backgroundColor: isSelected ? color : `${color}15`,
-                                color: isSelected ? "#ffffff" : color,
-                                border: `1px solid ${color}40`,
-                              }}
+                              variant="outline"
+                              size="sm"
+                              className="w-full justify-between h-7 px-2 text-xs text-muted-foreground hover:text-foreground font-normal"
                             >
-                              {isSelected && <CheckIcon className="size-3" />}
-                              <span>{m}</span>
-                            </button>
-                          );
-                        })}
-                      </div>
+                              <span className="truncate">{milestoneDraft || "Select milestone..."}</span>
+                              {milestoneDraft ? (
+                                <span
+                                  className="size-2.5 rounded-full shrink-0 ml-1"
+                                  style={{ backgroundColor: getMilestoneColor(milestoneDraft) }}
+                                />
+                              ) : (
+                                <ChevronDownIcon className="size-3.5 opacity-60 ml-1 shrink-0" />
+                              )}
+                            </Button>
+                          }
+                        />
+                        <DropdownMenuContent align="start" className="w-64 max-h-56 overflow-y-auto">
+                          <DropdownMenuItem
+                            onClick={() => setMilestoneDraft("")}
+                            className="text-muted-foreground flex items-center gap-2 cursor-pointer"
+                          >
+                            <span className="size-3.5 shrink-0" />
+                            <span>None / Clear milestone</span>
+                          </DropdownMenuItem>
+                          {availableBoardMilestones.map((m) => {
+                            const isSelected = milestoneDraft === m;
+                            const color = getMilestoneColor(m);
+                            return (
+                              <DropdownMenuItem
+                                key={m}
+                                onClick={() => setMilestoneDraft(isSelected ? "" : m)}
+                                className="flex items-center justify-between gap-2 cursor-pointer"
+                              >
+                                <div className="flex items-center gap-2 min-w-0 flex-1 truncate">
+                                  {isSelected ? (
+                                    <CheckIcon className="size-3.5 text-primary shrink-0" />
+                                  ) : (
+                                    <span className="size-3.5 shrink-0" />
+                                  )}
+                                  <span className={cn("truncate", isSelected && "font-semibold text-foreground")}>{m}</span>
+                                </div>
+                                <span className="size-2.5 rounded-full shrink-0" style={{ backgroundColor: color }} />
+                              </DropdownMenuItem>
+                            );
+                          })}
+                        </DropdownMenuContent>
+                      </DropdownMenu>
                     </div>
                   )}
 
@@ -611,7 +676,7 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
                   <div className="flex items-center justify-between">
                     <label htmlFor="detail-due-date-input" className="text-xs font-medium text-foreground flex items-center gap-1.5">
                       <CalendarIcon className="size-3.5 text-muted-foreground" />
-                      <span>Due Date & Time</span>
+                      <span>Due Date</span>
                     </label>
                     {dueDateDraft && (
                       <button
@@ -626,7 +691,7 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
 
                   <Input
                     id="detail-due-date-input"
-                    type="datetime-local"
+                    type="date"
                     value={dueDateDraft}
                     onChange={(e) => setDueDateDraft(e.target.value)}
                     className="h-8 text-xs"

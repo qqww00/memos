@@ -205,7 +205,8 @@ export const MilestonesRoadmapView = ({ board, cards, onSelectCard, onFilterMile
 
                       <div className="flex items-center gap-1.5 shrink-0">
                         {categories.slice(0, 1).map((cat) => {
-                          const color = getCategoryColor(cat);
+                          const isPrimary = memo.kanban?.category === cat;
+                          const color = getCategoryColor(cat, isPrimary ? memo.kanban?.categoryColorHex : undefined);
                           return (
                             <span
                               key={cat}

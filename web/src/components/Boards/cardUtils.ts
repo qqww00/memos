@@ -137,11 +137,11 @@ export function computeDeadlineProgress(createTimeSeconds?: number, dueTimeSecon
   const nowSeconds = Math.floor(Date.now() / 1000);
   const isOverdue = nowSeconds >= dueTimeSeconds;
   const dueDate = new Date(dueTimeSeconds * 1000);
+  const isCurrentYear = dueDate.getFullYear() === new Date().getFullYear();
   const formattedDue = dueDate.toLocaleDateString(undefined, {
     month: "short",
     day: "numeric",
-    hour: "2-digit",
-    minute: "2-digit",
+    year: isCurrentYear ? undefined : "numeric",
   });
 
   const diffSeconds = dueTimeSeconds - nowSeconds;

@@ -98,6 +98,7 @@ export const routeConfig: RouteObject[] = [
                       { path: Routes.VIEWS, element: <MemoViews /> },
                       { path: Routes.BOARDS, element: <Boards /> },
                       { path: Routes.SNIPPETS, element: <Snippets /> },
+                      { path: Routes.TIMELINE, element: <Home /> },
                     ],
                   },
                 ],

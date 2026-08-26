@@ -343,6 +343,11 @@ export const BoardDetail = () => {
 
     if (!targetColumnId) return;
 
+    // If card was dropped back onto itself in the same column, no-op.
+    if (sourceColumnId === targetColumnId && (targetOverMemoName === activeMemoName || String(active.id) === String(over.id))) {
+      return;
+    }
+
     const targetColumnCards = columnCardsMap.get(targetColumnId) || [];
     const targetListWithoutActive = targetColumnCards.filter((c) => c.name !== activeMemoName);
 
@@ -384,9 +389,10 @@ export const BoardDetail = () => {
               position: normalizedPos,
               category: item.kanban?.category,
               categoryColorHex: item.kanban?.categoryColorHex,
+              categories: item.kanban?.categories ?? (item.kanban?.category ? [item.kanban.category] : []),
+              milestone: item.kanban?.milestone,
               dueTime: item.kanban?.dueTime,
               isClosed: item.kanban?.isClosed,
-              categories: item.kanban?.categories,
             }),
           });
         }
@@ -408,9 +414,10 @@ export const BoardDetail = () => {
           position: newPosition,
           category: activeMemo.kanban?.category,
           categoryColorHex: activeMemo.kanban?.categoryColorHex,
+          categories: activeMemo.kanban?.categories ?? (activeMemo.kanban?.category ? [activeMemo.kanban.category] : []),
+          milestone: activeMemo.kanban?.milestone,
           dueTime: activeMemo.kanban?.dueTime,
           isClosed: activeMemo.kanban?.isClosed,
-          categories: activeMemo.kanban?.categories,
         }),
       });
     } catch {

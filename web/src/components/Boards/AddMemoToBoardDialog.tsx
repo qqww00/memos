@@ -282,6 +282,12 @@ export const AddMemoToBoardDialog = ({
           boardId,
           columnId: currentColumnId,
           position: newPosition,
+          category: memo.kanban?.category,
+          categoryColorHex: memo.kanban?.categoryColorHex,
+          categories: memo.kanban?.categories ?? (memo.kanban?.category ? [memo.kanban.category] : []),
+          milestone: memo.kanban?.milestone,
+          dueTime: memo.kanban?.dueTime,
+          isClosed: memo.kanban?.isClosed,
         }),
       });
       toast.success(t("boards.added-to-board"));

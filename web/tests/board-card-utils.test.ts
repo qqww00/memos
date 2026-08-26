@@ -1,5 +1,12 @@
 import { describe, expect, it } from "vitest";
-import { computeDeadlineProgress, getCardCategories, getCategoryColor, parseCardContent } from "@/components/Boards/cardUtils";
+import {
+  computeDeadlineProgress,
+  getCardCategories,
+  getCardMilestone,
+  getCategoryColor,
+  getMilestoneColor,
+  parseCardContent,
+} from "@/components/Boards/cardUtils";
 
 describe("cardUtils", () => {
   describe("parseCardContent", () => {
@@ -81,6 +88,22 @@ describe("cardUtils", () => {
 
       const override = getCategoryColor("Backend", "#ff0000");
       expect(override).toBe("#ff0000");
+    });
+  });
+
+  describe("getCardMilestone & getMilestoneColor", () => {
+    it("extracts milestone correctly", () => {
+      expect(getCardMilestone({ milestone: "v1.0-release" })).toBe("v1.0-release");
+      expect(getCardMilestone({ milestone: "  v2.0  " })).toBe("v2.0");
+      expect(getCardMilestone({ milestone: "" })).toBeUndefined();
+      expect(getCardMilestone(undefined)).toBeUndefined();
+    });
+
+    it("derives deterministic colors for milestone names", () => {
+      const color1 = getMilestoneColor("v1.0-release");
+      const color2 = getMilestoneColor("v1.0-release");
+      expect(color1).toBe(color2);
+      expect(color1.startsWith("#")).toBe(true);
     });
   });
 });

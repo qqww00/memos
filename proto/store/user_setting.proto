@@ -151,6 +151,10 @@ message BoardsUserSetting {
     google.protobuf.Timestamp created_at = 4;
     // When the board was last updated.
     google.protobuf.Timestamp updated_at = 5;
+    // Map of category name to hex color.
+    map<string, string> category_colors = 6;
+    // Map of milestone name to hex color.
+    map<string, string> milestone_colors = 7;
   }
 
   message BoardColumn {

@@ -11,5 +11,6 @@ export * from "./engineeringTemplates";
 export * from "./InlineCardCreator";
 export * from "./KanbanCard";
 export * from "./KanbanColumn";
+export * from "./MemoActivityHistory";
 export * from "./MemoDetailDialog";
 export * from "./MilestonesRoadmapView";

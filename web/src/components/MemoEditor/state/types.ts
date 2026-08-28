@@ -7,6 +7,7 @@ export type LoadingKey = "saving" | "uploading" | "loading";
 export type ContentSource = "editor" | "external";
 
 export interface EditorState {
+  title: string;
   content: string;
   contentSource: ContentSource;
   metadata: {
@@ -35,7 +36,11 @@ export interface EditorState {
 }
 
 export type EditorAction =
-  | { type: "INIT_MEMO"; payload: { content: string; metadata: EditorState["metadata"]; timestamps: EditorState["timestamps"] } }
+  | {
+      type: "INIT_MEMO";
+      payload: { title?: string; content: string; metadata: EditorState["metadata"]; timestamps: EditorState["timestamps"] };
+    }
+  | { type: "SET_TITLE"; payload: string }
   | { type: "UPDATE_CONTENT"; payload: { content: string; source: ContentSource } }
   | { type: "SET_METADATA"; payload: Partial<EditorState["metadata"]> }
   | { type: "ADD_LOCAL_FILE"; payload: LocalFile }
@@ -50,6 +55,7 @@ export type EditorAction =
 
 // Module-private template for createInitialState.
 const defaultState: EditorState = {
+  title: "",
   content: "",
   contentSource: "external",
   metadata: {

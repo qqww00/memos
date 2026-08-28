@@ -13,6 +13,7 @@ import (
 	"google.golang.org/grpc/status"
 	"google.golang.org/protobuf/proto"
 	"google.golang.org/protobuf/types/known/emptypb"
+	"google.golang.org/protobuf/types/known/timestamppb"
 
 	v1pb "github.com/usememos/memos/proto/gen/api/v1"
 	storepb "github.com/usememos/memos/proto/gen/store"
@@ -544,15 +545,22 @@ func (s *APIV1Service) UpdateMemo(ctx context.Context, request *v1pb.UpdateMemoR
 			if kanban == nil {
 				return nil, status.Errorf(codes.InvalidArgument, "kanban must be set when the kanban mask path is used")
 			}
+			oldKanban := memo.Payload.GetKanban()
+			var newKanban *storepb.MemoPayload_KanbanPayload
 			if kanban.GetBoardId() == "" {
 				// An empty kanban message clears the card state.
-				nextMemo.Payload.Kanban = nil
+				newKanban = nil
 			} else {
 				if err := s.validateKanbanTarget(ctx, memo.CreatorID, kanban); err != nil {
 					return nil, err
 				}
-				nextMemo.Payload.Kanban = convertKanbanToStore(kanban)
+				newKanban = convertKanbanToStore(kanban)
 			}
+			newActivities := s.generateKanbanActivities(ctx, memo.CreatorID, oldKanban, newKanban, user.Username)
+			if len(newActivities) > 0 {
+				nextMemo.Payload.Activities = append(nextMemo.Payload.Activities, newActivities...)
+			}
+			nextMemo.Payload.Kanban = newKanban
 			update.Payload = nextMemo.Payload
 		} else if path == "attachments" {
 			attachmentsUpdated = true
@@ -705,6 +713,160 @@ func (s *APIV1Service) getContentLengthLimit(ctx context.Context) (int, error) {
 		return 0, status.Errorf(codes.Internal, "failed to get instance memo related setting")
 	}
 	return int(instanceMemoRelatedSetting.ContentLengthLimit), nil
+}
+
+func getKanbanCategoriesList(k *storepb.MemoPayload_KanbanPayload) []string {
+	if k == nil {
+		return []string{}
+	}
+	res := make([]string, 0, len(k.Categories)+1)
+	seen := make(map[string]bool)
+	if k.Category != nil && strings.TrimSpace(*k.Category) != "" {
+		c := strings.TrimSpace(*k.Category)
+		res = append(res, c)
+		seen[c] = true
+	}
+	for _, c := range k.Categories {
+		c = strings.TrimSpace(c)
+		if c != "" && !seen[c] {
+			res = append(res, c)
+			seen[c] = true
+		}
+	}
+	return res
+}
+
+func (s *APIV1Service) generateKanbanActivities(ctx context.Context, creatorID int32, oldKanban, newKanban *storepb.MemoPayload_KanbanPayload, username string) []*storepb.MemoPayload_ActivityPayload {
+	var activities []*storepb.MemoPayload_ActivityPayload
+	now := timestamppb.Now()
+	creator := BuildUserName(username)
+
+	if oldKanban == nil && newKanban == nil {
+		return activities
+	}
+
+	addActivity := func(activityType, description string, oldValue, newValue *string) {
+		activities = append(activities, &storepb.MemoPayload_ActivityPayload{
+			Type:        activityType,
+			Description: description,
+			CreateTime:  now,
+			Creator:     creator,
+			OldValue:    oldValue,
+			NewValue:    newValue,
+		})
+	}
+
+	// 1. Column changes
+	if oldKanban != nil && newKanban != nil && oldKanban.ColumnId != newKanban.ColumnId {
+		oldColTitle := oldKanban.ColumnId
+		newColTitle := newKanban.ColumnId
+		if board, err := s.Store.GetUserBoard(ctx, creatorID, newKanban.BoardId); err == nil && board != nil {
+			for _, col := range board.Columns {
+				if col.Id == oldKanban.ColumnId {
+					oldColTitle = col.Title
+				}
+				if col.Id == newKanban.ColumnId {
+					newColTitle = col.Title
+				}
+			}
+		}
+		desc := fmt.Sprintf("Moved card from '%s' to '%s'", oldColTitle, newColTitle)
+		addActivity("MOVE_COLUMN", desc, &oldColTitle, &newColTitle)
+	}
+
+	// 2. Category changes
+	oldCats := getKanbanCategoriesList(oldKanban)
+	newCats := getKanbanCategoriesList(newKanban)
+	oldCatSet := make(map[string]bool)
+	for _, c := range oldCats {
+		oldCatSet[c] = true
+	}
+	newCatSet := make(map[string]bool)
+	for _, c := range newCats {
+		newCatSet[c] = true
+	}
+
+	if len(oldCats) == 1 && len(newCats) == 1 && oldCats[0] != newCats[0] {
+		desc := fmt.Sprintf("Changed category from '%s' to '%s'", oldCats[0], newCats[0])
+		addActivity("UPDATE_CATEGORY", desc, &oldCats[0], &newCats[0])
+	} else {
+		for _, c := range oldCats {
+			if !newCatSet[c] {
+				cCopy := c
+				desc := fmt.Sprintf("Removed category '%s'", c)
+				addActivity("UPDATE_CATEGORY", desc, &cCopy, nil)
+			}
+		}
+		for _, c := range newCats {
+			if !oldCatSet[c] {
+				cCopy := c
+				desc := fmt.Sprintf("Added category '%s'", c)
+				addActivity("UPDATE_CATEGORY", desc, nil, &cCopy)
+			}
+		}
+	}
+
+	// 3. Milestone changes
+	oldMilestone := ""
+	if oldKanban != nil && oldKanban.Milestone != nil {
+		oldMilestone = strings.TrimSpace(*oldKanban.Milestone)
+	}
+	newMilestone := ""
+	if newKanban != nil && newKanban.Milestone != nil {
+		newMilestone = strings.TrimSpace(*newKanban.Milestone)
+	}
+	if oldMilestone != newMilestone {
+		if oldMilestone == "" && newMilestone != "" {
+			desc := fmt.Sprintf("Set milestone to '%s'", newMilestone)
+			addActivity("UPDATE_MILESTONE", desc, nil, &newMilestone)
+		} else if oldMilestone != "" && newMilestone == "" {
+			desc := fmt.Sprintf("Removed milestone '%s'", oldMilestone)
+			addActivity("UPDATE_MILESTONE", desc, &oldMilestone, nil)
+		} else if oldMilestone != "" && newMilestone != "" {
+			desc := fmt.Sprintf("Changed milestone from '%s' to '%s'", oldMilestone, newMilestone)
+			addActivity("UPDATE_MILESTONE", desc, &oldMilestone, &newMilestone)
+		}
+	}
+
+	// 4. Closed / Completed status
+	oldClosed := oldKanban != nil && oldKanban.IsClosed != nil && *oldKanban.IsClosed
+	newClosed := newKanban != nil && newKanban.IsClosed != nil && *newKanban.IsClosed
+	if oldClosed != newClosed {
+		if newClosed {
+			desc := "Marked card as completed"
+			addActivity("UPDATE_STATUS", desc, nil, nil)
+		} else {
+			desc := "Reopened card"
+			addActivity("UPDATE_STATUS", desc, nil, nil)
+		}
+	}
+
+	// 5. Due date changes
+	oldDue := int64(0)
+	if oldKanban != nil && oldKanban.DueTime != nil {
+		oldDue = oldKanban.DueTime.Seconds
+	}
+	newDue := int64(0)
+	if newKanban != nil && newKanban.DueTime != nil {
+		newDue = newKanban.DueTime.Seconds
+	}
+	if oldDue != newDue {
+		if oldDue == 0 && newDue != 0 {
+			newFormatted := time.Unix(newDue, 0).Format("2006-01-02")
+			desc := fmt.Sprintf("Set due date to %s", newFormatted)
+			addActivity("UPDATE_DUE_TIME", desc, nil, &newFormatted)
+		} else if oldDue != 0 && newDue == 0 {
+			desc := "Removed due date"
+			addActivity("UPDATE_DUE_TIME", desc, nil, nil)
+		} else if oldDue != 0 && newDue != 0 {
+			oldFormatted := time.Unix(oldDue, 0).Format("2006-01-02")
+			newFormatted := time.Unix(newDue, 0).Format("2006-01-02")
+			desc := fmt.Sprintf("Changed due date from %s to %s", oldFormatted, newFormatted)
+			addActivity("UPDATE_DUE_TIME", desc, &oldFormatted, &newFormatted)
+		}
+	}
+
+	return activities
 }
 
 // DispatchMemoCreatedWebhook dispatches webhook when memo is created.

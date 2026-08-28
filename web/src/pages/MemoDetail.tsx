@@ -152,6 +152,7 @@ const MemoDetail = () => {
               <MemoCommentSection
                 memo={displayMemo}
                 comments={comments}
+                activities={displayMemo.activities || []}
                 parentPage={parentPage}
                 hasMoreComments={hasNextComments}
                 isFetchingMoreComments={isFetchingNextComments}

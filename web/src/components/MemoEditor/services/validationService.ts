@@ -15,8 +15,8 @@ export const validationService = {
       return { valid: false, reason: "editor.validation.loading-content" };
     }
 
-    // Must have content, attachment, or local file
-    if (!state.content.trim() && state.metadata.attachments.length === 0 && state.localFiles.length === 0) {
+    // Must have content, title, attachment, or local file
+    if (!state.content.trim() && !state.title?.trim() && state.metadata.attachments.length === 0 && state.localFiles.length === 0) {
       return { valid: false, reason: "editor.validation.content-required" };
     }
 

@@ -23,8 +23,9 @@ export const MILESTONE_PALETTE = [
 /**
  * Derives a consistent category badge color.
  */
-export function getCategoryColor(categoryName: string, overrideColor?: string): string {
+export function getCategoryColor(categoryName: string, overrideColor?: string, colorMap?: Record<string, string>): string {
   if (overrideColor) return overrideColor;
+  if (colorMap?.[categoryName]) return colorMap[categoryName];
   let hash = 0;
   for (let i = 0; i < categoryName.length; i++) {
     hash = (hash << 5) - hash + categoryName.charCodeAt(i);
@@ -37,7 +38,9 @@ export function getCategoryColor(categoryName: string, overrideColor?: string): 
 /**
  * Derives a consistent milestone badge color.
  */
-export function getMilestoneColor(milestoneName: string): string {
+export function getMilestoneColor(milestoneName: string, overrideColor?: string, colorMap?: Record<string, string>): string {
+  if (overrideColor) return overrideColor;
+  if (colorMap?.[milestoneName]) return colorMap[milestoneName];
   let hash = 0;
   for (let i = 0; i < milestoneName.length; i++) {
     hash = (hash << 5) - hash + milestoneName.charCodeAt(i);

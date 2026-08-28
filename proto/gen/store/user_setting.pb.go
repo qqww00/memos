@@ -1064,9 +1064,13 @@ type BoardsUserSetting_Board struct {
 	// When the board was created.
 	CreatedAt *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=created_at,json=createdAt,proto3" json:"created_at,omitempty"`
 	// When the board was last updated.
-	UpdatedAt     *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	UpdatedAt *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=updated_at,json=updatedAt,proto3" json:"updated_at,omitempty"`
+	// Map of category name to hex color.
+	CategoryColors map[string]string `protobuf:"bytes,6,rep,name=category_colors,json=categoryColors,proto3" json:"category_colors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Map of milestone name to hex color.
+	MilestoneColors map[string]string `protobuf:"bytes,7,rep,name=milestone_colors,json=milestoneColors,proto3" json:"milestone_colors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *BoardsUserSetting_Board) Reset() {
@@ -1130,6 +1134,20 @@ func (x *BoardsUserSetting_Board) GetCreatedAt() *timestamppb.Timestamp {
 func (x *BoardsUserSetting_Board) GetUpdatedAt() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdatedAt
+	}
+	return nil
+}
+
+func (x *BoardsUserSetting_Board) GetCategoryColors() map[string]string {
+	if x != nil {
+		return x.CategoryColors
+	}
+	return nil
+}
+
+func (x *BoardsUserSetting_Board) GetMilestoneColors() map[string]string {
+	if x != nil {
+		return x.MilestoneColors
 	}
 	return nil
 }
@@ -1295,9 +1313,9 @@ const file_store_user_setting_proto_rawDesc = "" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x10\n" +
 	"\x03url\x18\x03 \x01(\tR\x03url\x12%\n" +
-	"\x0esigning_secret\x18\x04 \x01(\tR\rsigningSecret\"\xac\x03\n" +
+	"\x0esigning_secret\x18\x04 \x01(\tR\rsigningSecret\"\xfc\x05\n" +
 	"\x11BoardsUserSetting\x12<\n" +
-	"\x06boards\x18\x01 \x03(\v2$.memos.store.BoardsUserSetting.BoardR\x06boards\x1a\xe9\x01\n" +
+	"\x06boards\x18\x01 \x03(\v2$.memos.store.BoardsUserSetting.BoardR\x06boards\x1a\xb9\x04\n" +
 	"\x05Board\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12D\n" +
@@ -1305,7 +1323,15 @@ const file_store_user_setting_proto_rawDesc = "" +
 	"\n" +
 	"created_at\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampR\tcreatedAt\x129\n" +
 	"\n" +
-	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x1am\n" +
+	"updated_at\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampR\tupdatedAt\x12a\n" +
+	"\x0fcategory_colors\x18\x06 \x03(\v28.memos.store.BoardsUserSetting.Board.CategoryColorsEntryR\x0ecategoryColors\x12d\n" +
+	"\x10milestone_colors\x18\a \x03(\v29.memos.store.BoardsUserSetting.Board.MilestoneColorsEntryR\x0fmilestoneColors\x1aA\n" +
+	"\x13CategoryColorsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aB\n" +
+	"\x14MilestoneColorsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1am\n" +
 	"\vBoardColumn\x12\x0e\n" +
 	"\x02id\x18\x01 \x01(\tR\x02id\x12\x14\n" +
 	"\x05title\x18\x02 \x01(\tR\x05title\x12\x1b\n" +
@@ -1326,7 +1352,7 @@ func file_store_user_setting_proto_rawDescGZIP() []byte {
 }
 
 var file_store_user_setting_proto_enumTypes = make([]protoimpl.EnumInfo, 1)
-var file_store_user_setting_proto_msgTypes = make([]protoimpl.MessageInfo, 17)
+var file_store_user_setting_proto_msgTypes = make([]protoimpl.MessageInfo, 19)
 var file_store_user_setting_proto_goTypes = []any{
 	(UserSetting_Key)(0),                                        // 0: memos.store.UserSetting.Key
 	(*UserSetting)(nil),                                         // 1: memos.store.UserSetting
@@ -1346,8 +1372,10 @@ var file_store_user_setting_proto_goTypes = []any{
 	(*WebhooksUserSetting_Webhook)(nil),                         // 15: memos.store.WebhooksUserSetting.Webhook
 	(*BoardsUserSetting_Board)(nil),                             // 16: memos.store.BoardsUserSetting.Board
 	(*BoardsUserSetting_BoardColumn)(nil),                       // 17: memos.store.BoardsUserSetting.BoardColumn
-	(*color.Color)(nil),                                         // 18: google.type.Color
-	(*timestamppb.Timestamp)(nil),                               // 19: google.protobuf.Timestamp
+	nil,                                                         // 18: memos.store.BoardsUserSetting.Board.CategoryColorsEntry
+	nil,                                                         // 19: memos.store.BoardsUserSetting.Board.MilestoneColorsEntry
+	(*color.Color)(nil),                                         // 20: google.type.Color
+	(*timestamppb.Timestamp)(nil),                               // 21: google.protobuf.Timestamp
 }
 var file_store_user_setting_proto_depIdxs = []int32{
 	0,  // 0: memos.store.UserSetting.key:type_name -> memos.store.UserSetting.Key
@@ -1358,7 +1386,7 @@ var file_store_user_setting_proto_depIdxs = []int32{
 	6,  // 5: memos.store.UserSetting.personal_access_tokens:type_name -> memos.store.PersonalAccessTokensUserSetting
 	4,  // 6: memos.store.UserSetting.tags:type_name -> memos.store.TagsUserSetting
 	9,  // 7: memos.store.UserSetting.boards:type_name -> memos.store.BoardsUserSetting
-	18, // 8: memos.store.UserTagMetadata.background_color:type_name -> google.type.Color
+	20, // 8: memos.store.UserTagMetadata.background_color:type_name -> google.type.Color
 	10, // 9: memos.store.TagsUserSetting.tags:type_name -> memos.store.TagsUserSetting.TagsEntry
 	11, // 10: memos.store.RefreshTokensUserSetting.refresh_tokens:type_name -> memos.store.RefreshTokensUserSetting.RefreshToken
 	13, // 11: memos.store.PersonalAccessTokensUserSetting.tokens:type_name -> memos.store.PersonalAccessTokensUserSetting.PersonalAccessToken
@@ -1366,20 +1394,22 @@ var file_store_user_setting_proto_depIdxs = []int32{
 	15, // 13: memos.store.WebhooksUserSetting.webhooks:type_name -> memos.store.WebhooksUserSetting.Webhook
 	16, // 14: memos.store.BoardsUserSetting.boards:type_name -> memos.store.BoardsUserSetting.Board
 	3,  // 15: memos.store.TagsUserSetting.TagsEntry.value:type_name -> memos.store.UserTagMetadata
-	19, // 16: memos.store.RefreshTokensUserSetting.RefreshToken.expires_at:type_name -> google.protobuf.Timestamp
-	19, // 17: memos.store.RefreshTokensUserSetting.RefreshToken.created_at:type_name -> google.protobuf.Timestamp
+	21, // 16: memos.store.RefreshTokensUserSetting.RefreshToken.expires_at:type_name -> google.protobuf.Timestamp
+	21, // 17: memos.store.RefreshTokensUserSetting.RefreshToken.created_at:type_name -> google.protobuf.Timestamp
 	12, // 18: memos.store.RefreshTokensUserSetting.RefreshToken.client_info:type_name -> memos.store.RefreshTokensUserSetting.ClientInfo
-	19, // 19: memos.store.PersonalAccessTokensUserSetting.PersonalAccessToken.expires_at:type_name -> google.protobuf.Timestamp
-	19, // 20: memos.store.PersonalAccessTokensUserSetting.PersonalAccessToken.created_at:type_name -> google.protobuf.Timestamp
-	19, // 21: memos.store.PersonalAccessTokensUserSetting.PersonalAccessToken.last_used_at:type_name -> google.protobuf.Timestamp
+	21, // 19: memos.store.PersonalAccessTokensUserSetting.PersonalAccessToken.expires_at:type_name -> google.protobuf.Timestamp
+	21, // 20: memos.store.PersonalAccessTokensUserSetting.PersonalAccessToken.created_at:type_name -> google.protobuf.Timestamp
+	21, // 21: memos.store.PersonalAccessTokensUserSetting.PersonalAccessToken.last_used_at:type_name -> google.protobuf.Timestamp
 	17, // 22: memos.store.BoardsUserSetting.Board.columns:type_name -> memos.store.BoardsUserSetting.BoardColumn
-	19, // 23: memos.store.BoardsUserSetting.Board.created_at:type_name -> google.protobuf.Timestamp
-	19, // 24: memos.store.BoardsUserSetting.Board.updated_at:type_name -> google.protobuf.Timestamp
-	25, // [25:25] is the sub-list for method output_type
-	25, // [25:25] is the sub-list for method input_type
-	25, // [25:25] is the sub-list for extension type_name
-	25, // [25:25] is the sub-list for extension extendee
-	0,  // [0:25] is the sub-list for field type_name
+	21, // 23: memos.store.BoardsUserSetting.Board.created_at:type_name -> google.protobuf.Timestamp
+	21, // 24: memos.store.BoardsUserSetting.Board.updated_at:type_name -> google.protobuf.Timestamp
+	18, // 25: memos.store.BoardsUserSetting.Board.category_colors:type_name -> memos.store.BoardsUserSetting.Board.CategoryColorsEntry
+	19, // 26: memos.store.BoardsUserSetting.Board.milestone_colors:type_name -> memos.store.BoardsUserSetting.Board.MilestoneColorsEntry
+	27, // [27:27] is the sub-list for method output_type
+	27, // [27:27] is the sub-list for method input_type
+	27, // [27:27] is the sub-list for extension type_name
+	27, // [27:27] is the sub-list for extension extendee
+	0,  // [0:27] is the sub-list for field type_name
 }
 
 func init() { file_store_user_setting_proto_init() }
@@ -1402,7 +1432,7 @@ func file_store_user_setting_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_store_user_setting_proto_rawDesc), len(file_store_user_setting_proto_rawDesc)),
 			NumEnums:      1,
-			NumMessages:   17,
+			NumMessages:   19,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

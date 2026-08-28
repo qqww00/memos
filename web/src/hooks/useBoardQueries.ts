@@ -257,6 +257,7 @@ export function useCreateBoardMemo(boardId: string) {
       categoryColorHex,
       categories,
       milestone,
+      milestoneColorHex,
       dueTime,
       isClosed,
     }: {
@@ -268,6 +269,7 @@ export function useCreateBoardMemo(boardId: string) {
       categoryColorHex?: string;
       categories?: string[];
       milestone?: string;
+      milestoneColorHex?: string;
       dueTime?: { seconds: bigint; nanos: number };
       isClosed?: boolean;
     }) => {
@@ -283,6 +285,7 @@ export function useCreateBoardMemo(boardId: string) {
             categoryColorHex,
             categories: categories ?? (category ? [category] : []),
             milestone,
+            milestoneColorHex,
             dueTime,
             isClosed,
           }),

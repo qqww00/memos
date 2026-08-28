@@ -42,6 +42,15 @@ function mergeExtractedRelations(existingRelations: MemoRelation[], content: str
   return relations;
 }
 
+export function formatMemoContent(title: string, body: string): string {
+  const trimmedTitle = title.trim();
+  const trimmedBody = body.trim();
+  if (trimmedTitle) {
+    return trimmedBody ? `# ${trimmedTitle}\n\n${trimmedBody}` : `# ${trimmedTitle}`;
+  }
+  return body;
+}
+
 function buildUpdateMask(
   prevMemo: Memo,
   state: EditorState,
@@ -49,14 +58,15 @@ function buildUpdateMask(
   allRelations: MemoRelation[],
 ): { mask: Set<string>; patch: Partial<Memo> } {
   const mask = new Set<string>();
+  const finalContent = formatMemoContent(state.title, state.content);
   const patch: Partial<Memo> = {
     name: prevMemo.name,
-    content: state.content,
+    content: finalContent,
   };
 
-  if (!isEqual(state.content, prevMemo.content)) {
+  if (!isEqual(finalContent, prevMemo.content)) {
     mask.add("content");
-    patch.content = state.content;
+    patch.content = finalContent;
   }
   if (!isEqual(state.metadata.visibility, prevMemo.visibility)) {
     mask.add("visibility");
@@ -107,10 +117,12 @@ export const memoService = {
       parentMemoName?: string;
     },
   ): Promise<{ memoName: string; hasChanges: boolean }> {
+    const finalContent = formatMemoContent(state.title, state.content);
+
     // 1. Upload local files first
     const newAttachments = await uploadService.uploadFiles(state.localFiles);
     const allAttachments = [...state.metadata.attachments, ...newAttachments];
-    const allRelations = mergeExtractedRelations(state.metadata.relations, state.content, options.memoName);
+    const allRelations = mergeExtractedRelations(state.metadata.relations, finalContent, options.memoName);
 
     // 2. Update existing memo
     if (options.memoName) {
@@ -130,7 +142,7 @@ export const memoService = {
 
     // 3. Create new memo or comment
     const memoData = create(MemoSchema, {
-      content: state.content,
+      content: finalContent,
       visibility: state.metadata.visibility,
       attachments: toAttachmentReferences(allAttachments),
       relations: allRelations,
@@ -154,9 +166,14 @@ export const memoService = {
    * request). Returns only the fields the reducer's INIT_MEMO case consumes —
    * UI state (mode, loading flags, …) is owned by the reducer, not by memos.
    */
-  fromMemo(memo: Memo): Pick<EditorState, "content" | "metadata" | "timestamps"> {
+  fromMemo(memo: Memo): Pick<EditorState, "title" | "content" | "metadata" | "timestamps"> {
+    const titleMatch = memo.content.match(/^#\s+([^\n]+)(\n+)?/);
+    const title = memo.property?.title?.trim() || (titleMatch ? titleMatch[1].trim() : "");
+    const content = titleMatch ? memo.content.slice(titleMatch[0].length) : memo.content;
+
     return {
-      content: memo.content,
+      title,
+      content,
       metadata: {
         visibility: memo.visibility,
         attachments: memo.attachments,

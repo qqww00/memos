@@ -29,6 +29,7 @@ interface InlineCardCreatorProps {
 
 export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: InlineCardCreatorProps) => {
   const t = useTranslate();
+  const [title, setTitle] = useState("");
   const [content, setContent] = useState("");
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
   const [newCatInput, setNewCatInput] = useState("");
@@ -86,8 +87,14 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
   };
 
   const handleSubmit = async () => {
-    const trimmed = content.trim();
-    if (!trimmed) return;
+    const trimmedContent = content.trim();
+    const trimmedTitle = title.trim();
+    if (!trimmedContent && !trimmedTitle) return;
+
+    let finalContent = trimmedContent;
+    if (trimmedTitle) {
+      finalContent = trimmedContent ? `# ${trimmedTitle}\n\n${trimmedContent}` : `# ${trimmedTitle}`;
+    }
 
     let dueTimestamp: { seconds: bigint; nanos: number } | undefined;
     if (dueDate) {
@@ -99,7 +106,7 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
 
     try {
       await createBoardMemo.mutateAsync({
-        content: trimmed,
+        content: finalContent,
         visibility,
         columnId,
         position: nextPosition,
@@ -109,6 +116,7 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
         milestone: selectedMilestone || undefined,
         dueTime: dueTimestamp,
       });
+      setTitle("");
       setContent("");
       setSelectedCategories([]);
       setSelectedMilestone("");
@@ -119,7 +127,7 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
     }
   };
 
-  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement>) => {
+  const handleKeyDown = (e: KeyboardEvent<HTMLTextAreaElement | HTMLInputElement>) => {
     if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) {
       e.preventDefault();
       void handleSubmit();
@@ -153,14 +161,22 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
 
   return (
     <div className="rounded-lg border border-primary/40 bg-card p-3 shadow-sm space-y-2.5">
+      <input
+        type="text"
+        autoFocus
+        value={title}
+        onChange={(e) => setTitle(e.target.value)}
+        onKeyDown={handleKeyDown}
+        placeholder="Card title (optional)..."
+        className="w-full text-sm font-semibold placeholder:text-muted-foreground/50 placeholder:font-normal bg-transparent border-0 border-b border-border/40 pb-1.5 focus:outline-hidden focus:border-primary/60 transition-colors"
+      />
       <Textarea
         ref={textareaRef}
-        autoFocus
         value={content}
         onChange={(e) => setContent(e.target.value)}
         onKeyDown={handleKeyDown}
-        placeholder="Write a note or task..."
-        rows={3}
+        placeholder="Write description or notes..."
+        rows={2}
         className="resize-none border-none p-0 text-sm shadow-none focus-visible:ring-0 bg-transparent placeholder:text-muted-foreground/60"
       />
 
@@ -464,7 +480,7 @@ export const InlineCardCreator = ({ boardId, columnId, nextPosition, onClose }: 
             type="button"
             size="sm"
             className="h-6 px-2.5 text-xs gap-1"
-            disabled={!content.trim() || createBoardMemo.isPending}
+            disabled={(!title.trim() && !content.trim()) || createBoardMemo.isPending}
             onClick={() => void handleSubmit()}
           >
             <PlusIcon className="size-3" />

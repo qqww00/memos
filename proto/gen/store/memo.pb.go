@@ -28,7 +28,9 @@ type MemoPayload struct {
 	Location *MemoPayload_Location  `protobuf:"bytes,2,opt,name=location,proto3" json:"location,omitempty"`
 	Tags     []string               `protobuf:"bytes,3,rep,name=tags,proto3" json:"tags,omitempty"`
 	// The kanban card state of the memo, if it is on a board.
-	Kanban        *MemoPayload_KanbanPayload `protobuf:"bytes,4,opt,name=kanban,proto3" json:"kanban,omitempty"`
+	Kanban *MemoPayload_KanbanPayload `protobuf:"bytes,4,opt,name=kanban,proto3" json:"kanban,omitempty"`
+	// Audit activities and change history of the memo on boards.
+	Activities    []*MemoPayload_ActivityPayload `protobuf:"bytes,5,rep,name=activities,proto3" json:"activities,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
 }
@@ -87,6 +89,13 @@ func (x *MemoPayload) GetTags() []string {
 func (x *MemoPayload) GetKanban() *MemoPayload_KanbanPayload {
 	if x != nil {
 		return x.Kanban
+	}
+	return nil
+}
+
+func (x *MemoPayload) GetActivities() []*MemoPayload_ActivityPayload {
+	if x != nil {
+		return x.Activities
 	}
 	return nil
 }
@@ -229,6 +238,90 @@ func (x *MemoPayload_Location) GetLongitude() float64 {
 	return 0
 }
 
+type MemoPayload_ActivityPayload struct {
+	state         protoimpl.MessageState `protogen:"open.v1"`
+	Type          string                 `protobuf:"bytes,1,opt,name=type,proto3" json:"type,omitempty"`
+	Description   string                 `protobuf:"bytes,2,opt,name=description,proto3" json:"description,omitempty"`
+	CreateTime    *timestamppb.Timestamp `protobuf:"bytes,3,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
+	Creator       string                 `protobuf:"bytes,4,opt,name=creator,proto3" json:"creator,omitempty"`
+	OldValue      *string                `protobuf:"bytes,5,opt,name=old_value,json=oldValue,proto3,oneof" json:"old_value,omitempty"`
+	NewValue      *string                `protobuf:"bytes,6,opt,name=new_value,json=newValue,proto3,oneof" json:"new_value,omitempty"`
+	unknownFields protoimpl.UnknownFields
+	sizeCache     protoimpl.SizeCache
+}
+
+func (x *MemoPayload_ActivityPayload) Reset() {
+	*x = MemoPayload_ActivityPayload{}
+	mi := &file_store_memo_proto_msgTypes[3]
+	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+	ms.StoreMessageInfo(mi)
+}
+
+func (x *MemoPayload_ActivityPayload) String() string {
+	return protoimpl.X.MessageStringOf(x)
+}
+
+func (*MemoPayload_ActivityPayload) ProtoMessage() {}
+
+func (x *MemoPayload_ActivityPayload) ProtoReflect() protoreflect.Message {
+	mi := &file_store_memo_proto_msgTypes[3]
+	if x != nil {
+		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
+		if ms.LoadMessageInfo() == nil {
+			ms.StoreMessageInfo(mi)
+		}
+		return ms
+	}
+	return mi.MessageOf(x)
+}
+
+// Deprecated: Use MemoPayload_ActivityPayload.ProtoReflect.Descriptor instead.
+func (*MemoPayload_ActivityPayload) Descriptor() ([]byte, []int) {
+	return file_store_memo_proto_rawDescGZIP(), []int{0, 2}
+}
+
+func (x *MemoPayload_ActivityPayload) GetType() string {
+	if x != nil {
+		return x.Type
+	}
+	return ""
+}
+
+func (x *MemoPayload_ActivityPayload) GetDescription() string {
+	if x != nil {
+		return x.Description
+	}
+	return ""
+}
+
+func (x *MemoPayload_ActivityPayload) GetCreateTime() *timestamppb.Timestamp {
+	if x != nil {
+		return x.CreateTime
+	}
+	return nil
+}
+
+func (x *MemoPayload_ActivityPayload) GetCreator() string {
+	if x != nil {
+		return x.Creator
+	}
+	return ""
+}
+
+func (x *MemoPayload_ActivityPayload) GetOldValue() string {
+	if x != nil && x.OldValue != nil {
+		return *x.OldValue
+	}
+	return ""
+}
+
+func (x *MemoPayload_ActivityPayload) GetNewValue() string {
+	if x != nil && x.NewValue != nil {
+		return *x.NewValue
+	}
+	return ""
+}
+
 // The kanban card state. A memo is a card of at most one board at a time.
 type MemoPayload_KanbanPayload struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
@@ -249,14 +342,16 @@ type MemoPayload_KanbanPayload struct {
 	// Multiple category labels.
 	Categories []string `protobuf:"bytes,8,rep,name=categories,proto3" json:"categories,omitempty"`
 	// The card milestone name.
-	Milestone     *string `protobuf:"bytes,9,opt,name=milestone,proto3,oneof" json:"milestone,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	Milestone *string `protobuf:"bytes,9,opt,name=milestone,proto3,oneof" json:"milestone,omitempty"`
+	// The card milestone color hex.
+	MilestoneColorHex *string `protobuf:"bytes,10,opt,name=milestone_color_hex,json=milestoneColorHex,proto3,oneof" json:"milestone_color_hex,omitempty"`
+	unknownFields     protoimpl.UnknownFields
+	sizeCache         protoimpl.SizeCache
 }
 
 func (x *MemoPayload_KanbanPayload) Reset() {
 	*x = MemoPayload_KanbanPayload{}
-	mi := &file_store_memo_proto_msgTypes[3]
+	mi := &file_store_memo_proto_msgTypes[4]
 	ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 	ms.StoreMessageInfo(mi)
 }
@@ -268,7 +363,7 @@ func (x *MemoPayload_KanbanPayload) String() string {
 func (*MemoPayload_KanbanPayload) ProtoMessage() {}
 
 func (x *MemoPayload_KanbanPayload) ProtoReflect() protoreflect.Message {
-	mi := &file_store_memo_proto_msgTypes[3]
+	mi := &file_store_memo_proto_msgTypes[4]
 	if x != nil {
 		ms := protoimpl.X.MessageStateOf(protoimpl.Pointer(x))
 		if ms.LoadMessageInfo() == nil {
@@ -281,7 +376,7 @@ func (x *MemoPayload_KanbanPayload) ProtoReflect() protoreflect.Message {
 
 // Deprecated: Use MemoPayload_KanbanPayload.ProtoReflect.Descriptor instead.
 func (*MemoPayload_KanbanPayload) Descriptor() ([]byte, []int) {
-	return file_store_memo_proto_rawDescGZIP(), []int{0, 2}
+	return file_store_memo_proto_rawDescGZIP(), []int{0, 3}
 }
 
 func (x *MemoPayload_KanbanPayload) GetBoardId() string {
@@ -347,16 +442,27 @@ func (x *MemoPayload_KanbanPayload) GetMilestone() string {
 	return ""
 }
 
+func (x *MemoPayload_KanbanPayload) GetMilestoneColorHex() string {
+	if x != nil && x.MilestoneColorHex != nil {
+		return *x.MilestoneColorHex
+	}
+	return ""
+}
+
 var File_store_memo_proto protoreflect.FileDescriptor
 
 const file_store_memo_proto_rawDesc = "" +
 	"\n" +
-	"\x10store/memo.proto\x12\vmemos.store\x1a\x1fgoogle/protobuf/timestamp.proto\"\x9e\a\n" +
+	"\x10store/memo.proto\x12\vmemos.store\x1a\x1fgoogle/protobuf/timestamp.proto\"\xb6\n" +
+	"\n" +
 	"\vMemoPayload\x12=\n" +
 	"\bproperty\x18\x01 \x01(\v2!.memos.store.MemoPayload.PropertyR\bproperty\x12=\n" +
 	"\blocation\x18\x02 \x01(\v2!.memos.store.MemoPayload.LocationR\blocation\x12\x12\n" +
 	"\x04tags\x18\x03 \x03(\tR\x04tags\x12>\n" +
-	"\x06kanban\x18\x04 \x01(\v2&.memos.store.MemoPayload.KanbanPayloadR\x06kanban\x1a\xac\x01\n" +
+	"\x06kanban\x18\x04 \x01(\v2&.memos.store.MemoPayload.KanbanPayloadR\x06kanban\x12H\n" +
+	"\n" +
+	"activities\x18\x05 \x03(\v2(.memos.store.MemoPayload.ActivityPayloadR\n" +
+	"activities\x1a\xac\x01\n" +
 	"\bProperty\x12\x19\n" +
 	"\bhas_link\x18\x01 \x01(\bR\ahasLink\x12\"\n" +
 	"\rhas_task_list\x18\x02 \x01(\bR\vhasTaskList\x12\x19\n" +
@@ -366,7 +472,19 @@ const file_store_memo_proto_rawDesc = "" +
 	"\bLocation\x12 \n" +
 	"\vplaceholder\x18\x01 \x01(\tR\vplaceholder\x12\x1a\n" +
 	"\blatitude\x18\x02 \x01(\x01R\blatitude\x12\x1c\n" +
-	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x1a\xa5\x03\n" +
+	"\tlongitude\x18\x03 \x01(\x01R\tlongitude\x1a\xfe\x01\n" +
+	"\x0fActivityPayload\x12\x12\n" +
+	"\x04type\x18\x01 \x01(\tR\x04type\x12 \n" +
+	"\vdescription\x18\x02 \x01(\tR\vdescription\x12;\n" +
+	"\vcreate_time\x18\x03 \x01(\v2\x1a.google.protobuf.TimestampR\n" +
+	"createTime\x12\x18\n" +
+	"\acreator\x18\x04 \x01(\tR\acreator\x12 \n" +
+	"\told_value\x18\x05 \x01(\tH\x00R\boldValue\x88\x01\x01\x12 \n" +
+	"\tnew_value\x18\x06 \x01(\tH\x01R\bnewValue\x88\x01\x01B\f\n" +
+	"\n" +
+	"_old_valueB\f\n" +
+	"\n" +
+	"_new_value\x1a\xf2\x03\n" +
 	"\rKanbanPayload\x12\x19\n" +
 	"\bboard_id\x18\x01 \x01(\tR\aboardId\x12\x1b\n" +
 	"\tcolumn_id\x18\x02 \x01(\tR\bcolumnId\x12\x1a\n" +
@@ -378,14 +496,17 @@ const file_store_memo_proto_rawDesc = "" +
 	"\n" +
 	"categories\x18\b \x03(\tR\n" +
 	"categories\x12!\n" +
-	"\tmilestone\x18\t \x01(\tH\x04R\tmilestone\x88\x01\x01B\v\n" +
+	"\tmilestone\x18\t \x01(\tH\x04R\tmilestone\x88\x01\x01\x123\n" +
+	"\x13milestone_color_hex\x18\n" +
+	" \x01(\tH\x05R\x11milestoneColorHex\x88\x01\x01B\v\n" +
 	"\t_categoryB\x15\n" +
 	"\x13_category_color_hexB\v\n" +
 	"\t_due_timeB\f\n" +
 	"\n" +
 	"_is_closedB\f\n" +
 	"\n" +
-	"_milestoneB\x94\x01\n" +
+	"_milestoneB\x16\n" +
+	"\x14_milestone_color_hexB\x94\x01\n" +
 	"\x0fcom.memos.storeB\tMemoProtoP\x01Z)github.com/usememos/memos/proto/gen/store\xa2\x02\x03MSX\xaa\x02\vMemos.Store\xca\x02\vMemos\\Store\xe2\x02\x17Memos\\Store\\GPBMetadata\xea\x02\fMemos::Storeb\x06proto3"
 
 var (
@@ -400,24 +521,27 @@ func file_store_memo_proto_rawDescGZIP() []byte {
 	return file_store_memo_proto_rawDescData
 }
 
-var file_store_memo_proto_msgTypes = make([]protoimpl.MessageInfo, 4)
+var file_store_memo_proto_msgTypes = make([]protoimpl.MessageInfo, 5)
 var file_store_memo_proto_goTypes = []any{
-	(*MemoPayload)(nil),               // 0: memos.store.MemoPayload
-	(*MemoPayload_Property)(nil),      // 1: memos.store.MemoPayload.Property
-	(*MemoPayload_Location)(nil),      // 2: memos.store.MemoPayload.Location
-	(*MemoPayload_KanbanPayload)(nil), // 3: memos.store.MemoPayload.KanbanPayload
-	(*timestamppb.Timestamp)(nil),     // 4: google.protobuf.Timestamp
+	(*MemoPayload)(nil),                 // 0: memos.store.MemoPayload
+	(*MemoPayload_Property)(nil),        // 1: memos.store.MemoPayload.Property
+	(*MemoPayload_Location)(nil),        // 2: memos.store.MemoPayload.Location
+	(*MemoPayload_ActivityPayload)(nil), // 3: memos.store.MemoPayload.ActivityPayload
+	(*MemoPayload_KanbanPayload)(nil),   // 4: memos.store.MemoPayload.KanbanPayload
+	(*timestamppb.Timestamp)(nil),       // 5: google.protobuf.Timestamp
 }
 var file_store_memo_proto_depIdxs = []int32{
 	1, // 0: memos.store.MemoPayload.property:type_name -> memos.store.MemoPayload.Property
 	2, // 1: memos.store.MemoPayload.location:type_name -> memos.store.MemoPayload.Location
-	3, // 2: memos.store.MemoPayload.kanban:type_name -> memos.store.MemoPayload.KanbanPayload
-	4, // 3: memos.store.MemoPayload.KanbanPayload.due_time:type_name -> google.protobuf.Timestamp
-	4, // [4:4] is the sub-list for method output_type
-	4, // [4:4] is the sub-list for method input_type
-	4, // [4:4] is the sub-list for extension type_name
-	4, // [4:4] is the sub-list for extension extendee
-	0, // [0:4] is the sub-list for field type_name
+	4, // 2: memos.store.MemoPayload.kanban:type_name -> memos.store.MemoPayload.KanbanPayload
+	3, // 3: memos.store.MemoPayload.activities:type_name -> memos.store.MemoPayload.ActivityPayload
+	5, // 4: memos.store.MemoPayload.ActivityPayload.create_time:type_name -> google.protobuf.Timestamp
+	5, // 5: memos.store.MemoPayload.KanbanPayload.due_time:type_name -> google.protobuf.Timestamp
+	6, // [6:6] is the sub-list for method output_type
+	6, // [6:6] is the sub-list for method input_type
+	6, // [6:6] is the sub-list for extension type_name
+	6, // [6:6] is the sub-list for extension extendee
+	0, // [0:6] is the sub-list for field type_name
 }
 
 func init() { file_store_memo_proto_init() }
@@ -426,13 +550,14 @@ func file_store_memo_proto_init() {
 		return
 	}
 	file_store_memo_proto_msgTypes[3].OneofWrappers = []any{}
+	file_store_memo_proto_msgTypes[4].OneofWrappers = []any{}
 	type x struct{}
 	out := protoimpl.TypeBuilder{
 		File: protoimpl.DescBuilder{
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_store_memo_proto_rawDesc), len(file_store_memo_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   4,
+			NumMessages:   5,
 			NumExtensions: 0,
 			NumServices:   0,
 		},

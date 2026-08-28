@@ -1,7 +1,7 @@
 import { SortableContext, useSortable, verticalListSortingStrategy } from "@dnd-kit/sortable";
 import { CSS } from "@dnd-kit/utilities";
 import { PlusIcon } from "lucide-react";
-import { useState } from "react";
+import { Fragment, useState } from "react";
 import { Button } from "@/components/ui/button";
 import { cn } from "@/lib/utils";
 import type { BoardColumn } from "@/types/proto/api/v1/board_service_pb";
@@ -15,6 +15,7 @@ interface KanbanColumnProps {
   boardId?: string;
   column: BoardColumn;
   cards: Memo[];
+  dropIndicatorIndex?: number | null;
   canMoveLeft: boolean;
   canMoveRight: boolean;
   canDelete: boolean;
@@ -34,6 +35,7 @@ export const KanbanColumn = ({
   boardId,
   column,
   cards,
+  dropIndicatorIndex,
   canMoveLeft,
   canMoveRight,
   canDelete,
@@ -102,8 +104,16 @@ export const KanbanColumn = ({
 
       <div className="mt-2 flex min-h-[100px] flex-1 flex-col gap-2 overflow-y-auto pr-0.5 [scrollbar-width:thin]">
         <SortableContext items={cardIds} strategy={verticalListSortingStrategy}>
-          {cards.map((memo) => (
-            <KanbanCard key={memo.name} memo={memo} columnId={column.id} parentPage={parentPage} onSelect={onSelectCard} />
+          {dropIndicatorIndex === 0 && (
+            <div className="h-16 w-full shrink-0 rounded-xl border-2 border-dashed border-primary/60 bg-primary/10 transition-all duration-200" />
+          )}
+          {cards.map((memo, idx) => (
+            <Fragment key={memo.name}>
+              <KanbanCard memo={memo} columnId={column.id} parentPage={parentPage} onSelect={onSelectCard} />
+              {dropIndicatorIndex === idx + 1 && (
+                <div className="h-16 w-full shrink-0 rounded-xl border-2 border-dashed border-primary/60 bg-primary/10 transition-all duration-200" />
+              )}
+            </Fragment>
           ))}
         </SortableContext>
 

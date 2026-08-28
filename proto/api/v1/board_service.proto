@@ -75,6 +75,12 @@ message Board {
 
   // Output only. The last update timestamp.
   google.protobuf.Timestamp update_time = 5 [(google.api.field_behavior) = OUTPUT_ONLY];
+
+  // Optional map of category names to hex colors, e.g. {"Bug": "#ef4444"}.
+  map<string, string> category_colors = 6 [(google.api.field_behavior) = OPTIONAL];
+
+  // Optional map of milestone names to hex colors, e.g. {"v1.0": "#6366f1"}.
+  map<string, string> milestone_colors = 7 [(google.api.field_behavior) = OPTIONAL];
 }
 
 message BoardColumn {
@@ -135,7 +141,7 @@ message UpdateBoardRequest {
   // Required. The board resource which replaces the resource on the server.
   Board board = 1 [(google.api.field_behavior) = REQUIRED];
 
-  // Optional. The list of fields to update. Supported paths: title, columns.
+  // Optional. The list of fields to update. Supported paths: title, columns, category_colors, milestone_colors.
   google.protobuf.FieldMask update_mask = 2 [(google.api.field_behavior) = OPTIONAL];
 }
 

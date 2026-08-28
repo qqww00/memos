@@ -49,7 +49,14 @@ import {
 import { Input } from "@/components/ui/input";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { memoServiceClient } from "@/connect";
-import { useBoardCards, useCreateBoardMemo, useUpdateMemoKanban } from "@/hooks/useBoardQueries";
+import {
+  boardIdFromName,
+  useBoardCards,
+  useBoards,
+  useCreateBoardMemo,
+  useUpdateBoard,
+  useUpdateMemoKanban,
+} from "@/hooks/useBoardQueries";
 import useCurrentUser from "@/hooks/useCurrentUser";
 import { cn } from "@/lib/utils";
 import type { BoardColumn } from "@/types/proto/api/v1/board_service_pb";
@@ -83,6 +90,7 @@ export const AddMemoToBoardDialog = ({
   const [previewMode, setPreviewMode] = useState<"write" | "preview">("write");
   const [selectedColumnId, setSelectedColumnId] = useState(initialColumnId || columns[0]?.id || "");
   const [searchQuery, setSearchQuery] = useState("");
+  const [newTitle, setNewTitle] = useState("");
   const [newContent, setNewContent] = useState("");
   const [isClosedDraft, setIsClosedDraft] = useState(false);
   const [selectedCategories, setSelectedCategories] = useState<string[]>([]);
@@ -95,35 +103,51 @@ export const AddMemoToBoardDialog = ({
   const [newVisibility, setNewVisibility] = useState<Visibility>(Visibility.PRIVATE);
   const [isSaving, setIsSaving] = useState(false);
 
+  const { data: boards = [] } = useBoards();
+  const board = useMemo(() => boards.find((b) => boardIdFromName(b.name) === boardId || b.name === boardId), [boards, boardId]);
+  const updateBoard = useUpdateBoard();
+
   const { data: boardCards = [] } = useBoardCards(boardId, { enabled: !!boardId && open });
 
   // Extract all categories used across this board
   const availableBoardCategories = useMemo(() => {
     const map = new Map<string, string>();
+    if (board?.categoryColors) {
+      for (const [name, color] of Object.entries(board.categoryColors)) {
+        if (name && color) map.set(name, color);
+      }
+    }
     for (const card of boardCards) {
       if (card.kanban) {
         for (const c of getCardCategories(card.kanban)) {
           if (!map.has(c)) {
             const cardColor =
-              card.kanban.category === c && card.kanban.categoryColorHex ? card.kanban.categoryColorHex : getCategoryColor(c);
+              card.kanban.category === c && card.kanban.categoryColorHex
+                ? card.kanban.categoryColorHex
+                : getCategoryColor(c, undefined, board?.categoryColors);
             map.set(c, cardColor);
           }
         }
       }
     }
     return Array.from(map.entries()).map(([name, color]) => ({ name, color }));
-  }, [boardCards]);
+  }, [boardCards, board?.categoryColors]);
 
   // Extract all milestones across this board
   const availableBoardMilestones = useMemo(() => {
     const set = new Set<string>();
+    if (board?.milestoneColors) {
+      for (const m of Object.keys(board.milestoneColors)) {
+        if (m.trim()) set.add(m.trim());
+      }
+    }
     for (const card of boardCards) {
       if (card.kanban?.milestone?.trim()) {
         set.add(card.kanban.milestone.trim());
       }
     }
     return Array.from(set).sort();
-  }, [boardCards]);
+  }, [boardCards, board?.milestoneColors]);
 
   const updateMemoKanban = useUpdateMemoKanban();
   const createBoardMemo = useCreateBoardMemo(boardId);
@@ -188,6 +212,7 @@ export const AddMemoToBoardDialog = ({
   };
 
   const handleSelectTemplate = (tmpl: EngineeringTemplate) => {
+    setNewTitle(tmpl.title);
     setNewContent(tmpl.templateContent);
     if (!selectedCategories.includes(tmpl.category)) {
       setSelectedCategories((prev) => [...prev, tmpl.category]);
@@ -213,6 +238,7 @@ export const AddMemoToBoardDialog = ({
   };
 
   const handleReset = () => {
+    setNewTitle("");
     setNewContent("");
     setSelectedCategories([]);
     setSelectedMilestone("");
@@ -224,8 +250,14 @@ export const AddMemoToBoardDialog = ({
   };
 
   const handleCreateMemo = async () => {
-    const trimmed = newContent.trim();
-    if (!trimmed || !currentColumnId) return;
+    const trimmedContent = newContent.trim();
+    const trimmedTitle = newTitle.trim();
+    if ((!trimmedContent && !trimmedTitle) || !currentColumnId) return;
+
+    let finalContent = trimmedContent;
+    if (trimmedTitle) {
+      finalContent = trimmedContent ? `# ${trimmedTitle}\n\n${trimmedContent}` : `# ${trimmedTitle}`;
+    }
 
     const columnCards = existingColumnCards?.get(currentColumnId) ?? [];
     const lastPosition = columnCards.at(-1)?.kanban?.position ?? 0;
@@ -243,11 +275,14 @@ export const AddMemoToBoardDialog = ({
 
     const primaryCategory = selectedCategories[0];
     const primaryColor = primaryCategory ? categoryColorMap[primaryCategory] || newCatColor : undefined;
+    const milestoneColor = selectedMilestone
+      ? board?.milestoneColors?.[selectedMilestone] || getMilestoneColor(selectedMilestone)
+      : undefined;
 
     setIsSaving(true);
     try {
       await createBoardMemo.mutateAsync({
-        content: trimmed,
+        content: finalContent,
         visibility: newVisibility,
         columnId: currentColumnId,
         position: newPosition,
@@ -255,9 +290,35 @@ export const AddMemoToBoardDialog = ({
         category: primaryCategory || undefined,
         categoryColorHex: primaryColor,
         milestone: selectedMilestone || undefined,
+        milestoneColorHex: milestoneColor,
         dueTime: dueTimestamp,
         isClosed: isClosedDraft,
       });
+
+      // Save category color into board setting in database if updated
+      if (board && primaryCategory && primaryColor && board.categoryColors?.[primaryCategory] !== primaryColor) {
+        const nextCatColors = { ...(board.categoryColors || {}), [primaryCategory]: primaryColor };
+        await updateBoard.mutateAsync({
+          board: {
+            name: board.name,
+            categoryColors: nextCatColors,
+          },
+          updateMask: ["category_colors"],
+        });
+      }
+
+      // Save milestone color into board setting in database if updated
+      if (board && selectedMilestone && milestoneColor && board.milestoneColors?.[selectedMilestone] !== milestoneColor) {
+        const nextMilestoneColors = { ...(board.milestoneColors || {}), [selectedMilestone]: milestoneColor };
+        await updateBoard.mutateAsync({
+          board: {
+            name: board.name,
+            milestoneColors: nextMilestoneColors,
+          },
+          updateMask: ["milestone_colors"],
+        });
+      }
+
       handleReset();
       toast.success("Memo created");
       onOpenChange(false);
@@ -334,8 +395,13 @@ export const AddMemoToBoardDialog = ({
     : undefined;
   const deadline = computeDeadlineProgress(Math.floor(Date.now() / 1000), draftDueSec);
 
-  const wordCount = newContent.trim() ? newContent.trim().split(/\s+/).length : 0;
-  const charCount = newContent.length;
+  const combinedDraftText = newTitle.trim()
+    ? newContent.trim()
+      ? `# ${newTitle.trim()}\n\n${newContent}`
+      : `# ${newTitle.trim()}`
+    : newContent;
+  const wordCount = combinedDraftText.trim() ? combinedDraftText.trim().split(/\s+/).length : 0;
+  const charCount = combinedDraftText.length;
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -636,8 +702,15 @@ export const AddMemoToBoardDialog = ({
                       </Button>
                     </div>
 
-                    {/* Textarea Input */}
-                    <div className="flex-1 min-h-0 p-6 flex flex-col">
+                    {/* Title & Textarea Input */}
+                    <div className="flex-1 min-h-0 p-6 flex flex-col gap-3">
+                      <input
+                        type="text"
+                        value={newTitle}
+                        onChange={(e) => setNewTitle(e.target.value)}
+                        placeholder="Title (optional)..."
+                        className="w-full text-base font-semibold placeholder:text-muted-foreground/50 placeholder:font-normal bg-transparent border-0 border-b border-border/40 pb-2 focus:outline-hidden focus:border-primary/60 transition-colors shrink-0"
+                      />
                       <textarea
                         ref={textareaRef}
                         value={newContent}
@@ -645,7 +718,6 @@ export const AddMemoToBoardDialog = ({
                         onKeyDown={handleKeyDown}
                         placeholder="Write your memo in markdown... (supports #tags, checklists, tables, code blocks)&#10;Tip: Press Cmd/Ctrl+Enter to save"
                         className="flex-1 w-full p-2 resize-none border-none outline-none focus:outline-none focus:ring-0 text-sm leading-relaxed font-sans bg-transparent placeholder:text-muted-foreground/50 [scrollbar-width:thin]"
-                        autoFocus
                       />
                     </div>
 
@@ -665,9 +737,9 @@ export const AddMemoToBoardDialog = ({
                 ) : (
                   /* Live Preview Mode */
                   <div className="flex-1 overflow-y-auto p-6 space-y-4 [scrollbar-width:thin]">
-                    {newContent.trim() ? (
+                    {combinedDraftText.trim() ? (
                       <div className="max-w-none prose dark:prose-invert">
-                        <MemoContent content={newContent} />
+                        <MemoContent content={combinedDraftText} />
                       </div>
                     ) : (
                       <div className="flex flex-col items-center justify-center h-48 text-center text-muted-foreground text-xs italic">
@@ -1109,14 +1181,14 @@ export const AddMemoToBoardDialog = ({
                   <Button
                     type="button"
                     className="w-full gap-1.5 text-xs h-8"
-                    disabled={!newContent.trim() || isSaving}
+                    disabled={(!newTitle.trim() && !newContent.trim()) || isSaving}
                     onClick={() => void handleCreateMemo()}
                   >
                     <PlusIcon className="size-3.5" />
                     <span>{isSaving ? "Creating..." : "Create Memo"}</span>
                   </Button>
 
-                  {newContent.trim() && (
+                  {(newTitle.trim() || newContent.trim()) && (
                     <Button
                       type="button"
                       variant="ghost"

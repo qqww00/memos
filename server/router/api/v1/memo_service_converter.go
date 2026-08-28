@@ -49,6 +49,7 @@ func (s *APIV1Service) convertMemoFromStoreWithCreators(ctx context.Context, mem
 		memoMessage.Property = convertMemoPropertyFromStore(memo.Payload.Property)
 		memoMessage.Location = convertLocationFromStore(memo.Payload.Location)
 		memoMessage.Kanban = convertKanbanFromStore(memo.Payload.Kanban)
+		memoMessage.Activities = convertActivitiesFromStore(memo.Payload.Activities, name)
 	}
 
 	if memo.ParentUID != nil {
@@ -81,6 +82,28 @@ func (s *APIV1Service) convertMemoFromStoreWithCreators(ctx context.Context, mem
 	memoMessage.Snippet = snippet
 
 	return memoMessage, nil
+}
+
+func convertActivitiesFromStore(activities []*storepb.MemoPayload_ActivityPayload, memoName string) []*v1pb.Activity {
+	if len(activities) == 0 {
+		return []*v1pb.Activity{}
+	}
+	res := make([]*v1pb.Activity, 0, len(activities))
+	for i, a := range activities {
+		if a == nil {
+			continue
+		}
+		res = append(res, &v1pb.Activity{
+			Name:        fmt.Sprintf("%s/activities/%d", memoName, i+1),
+			Type:        a.Type,
+			Description: a.Description,
+			CreateTime:  a.CreateTime,
+			Creator:     a.Creator,
+			OldValue:    a.OldValue,
+			NewValue:    a.NewValue,
+		})
+	}
+	return res
 }
 
 func (s *APIV1Service) listUsersByIDWithExisting(ctx context.Context, userIDs []int32, existing map[int32]*store.User) (map[int32]*store.User, error) {
@@ -352,15 +375,16 @@ func convertKanbanFromStore(kanban *storepb.MemoPayload_KanbanPayload) *v1pb.Kan
 		return nil
 	}
 	return &v1pb.Kanban{
-		BoardId:          kanban.BoardId,
-		ColumnId:         kanban.ColumnId,
-		Position:         kanban.Position,
-		Category:         kanban.Category,
-		CategoryColorHex: kanban.CategoryColorHex,
-		DueTime:          kanban.DueTime,
-		IsClosed:         kanban.IsClosed,
-		Categories:       kanban.Categories,
-		Milestone:        kanban.Milestone,
+		BoardId:           kanban.BoardId,
+		ColumnId:          kanban.ColumnId,
+		Position:          kanban.Position,
+		Category:          kanban.Category,
+		CategoryColorHex:  kanban.CategoryColorHex,
+		DueTime:           kanban.DueTime,
+		IsClosed:          kanban.IsClosed,
+		Categories:        kanban.Categories,
+		Milestone:         kanban.Milestone,
+		MilestoneColorHex: kanban.MilestoneColorHex,
 	}
 }
 
@@ -369,15 +393,16 @@ func convertKanbanToStore(kanban *v1pb.Kanban) *storepb.MemoPayload_KanbanPayloa
 		return nil
 	}
 	return &storepb.MemoPayload_KanbanPayload{
-		BoardId:          kanban.BoardId,
-		ColumnId:         kanban.ColumnId,
-		Position:         kanban.Position,
-		Category:         kanban.Category,
-		CategoryColorHex: kanban.CategoryColorHex,
-		DueTime:          kanban.DueTime,
-		IsClosed:         kanban.IsClosed,
-		Categories:       kanban.Categories,
-		Milestone:        kanban.Milestone,
+		BoardId:           kanban.BoardId,
+		ColumnId:          kanban.ColumnId,
+		Position:          kanban.Position,
+		Category:          kanban.Category,
+		CategoryColorHex:  kanban.CategoryColorHex,
+		DueTime:           kanban.DueTime,
+		IsClosed:          kanban.IsClosed,
+		Categories:        kanban.Categories,
+		Milestone:         kanban.Milestone,
+		MilestoneColorHex: kanban.MilestoneColorHex,
 	}
 }
 

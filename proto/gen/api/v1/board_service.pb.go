@@ -38,9 +38,13 @@ type Board struct {
 	// Output only. The creation timestamp.
 	CreateTime *timestamppb.Timestamp `protobuf:"bytes,4,opt,name=create_time,json=createTime,proto3" json:"create_time,omitempty"`
 	// Output only. The last update timestamp.
-	UpdateTime    *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
-	unknownFields protoimpl.UnknownFields
-	sizeCache     protoimpl.SizeCache
+	UpdateTime *timestamppb.Timestamp `protobuf:"bytes,5,opt,name=update_time,json=updateTime,proto3" json:"update_time,omitempty"`
+	// Optional map of category names to hex colors, e.g. {"Bug": "#ef4444"}.
+	CategoryColors map[string]string `protobuf:"bytes,6,rep,name=category_colors,json=categoryColors,proto3" json:"category_colors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	// Optional map of milestone names to hex colors, e.g. {"v1.0": "#6366f1"}.
+	MilestoneColors map[string]string `protobuf:"bytes,7,rep,name=milestone_colors,json=milestoneColors,proto3" json:"milestone_colors,omitempty" protobuf_key:"bytes,1,opt,name=key" protobuf_val:"bytes,2,opt,name=value"`
+	unknownFields   protoimpl.UnknownFields
+	sizeCache       protoimpl.SizeCache
 }
 
 func (x *Board) Reset() {
@@ -104,6 +108,20 @@ func (x *Board) GetCreateTime() *timestamppb.Timestamp {
 func (x *Board) GetUpdateTime() *timestamppb.Timestamp {
 	if x != nil {
 		return x.UpdateTime
+	}
+	return nil
+}
+
+func (x *Board) GetCategoryColors() map[string]string {
+	if x != nil {
+		return x.CategoryColors
+	}
+	return nil
+}
+
+func (x *Board) GetMilestoneColors() map[string]string {
+	if x != nil {
+		return x.MilestoneColors
 	}
 	return nil
 }
@@ -387,7 +405,7 @@ type UpdateBoardRequest struct {
 	state protoimpl.MessageState `protogen:"open.v1"`
 	// Required. The board resource which replaces the resource on the server.
 	Board *Board `protobuf:"bytes,1,opt,name=board,proto3" json:"board,omitempty"`
-	// Optional. The list of fields to update. Supported paths: title, columns.
+	// Optional. The list of fields to update. Supported paths: title, columns, category_colors, milestone_colors.
 	UpdateMask    *fieldmaskpb.FieldMask `protobuf:"bytes,2,opt,name=update_mask,json=updateMask,proto3" json:"update_mask,omitempty"`
 	unknownFields protoimpl.UnknownFields
 	sizeCache     protoimpl.SizeCache
@@ -487,7 +505,7 @@ var File_api_v1_board_service_proto protoreflect.FileDescriptor
 
 const file_api_v1_board_service_proto_rawDesc = "" +
 	"\n" +
-	"\x1aapi/v1/board_service.proto\x12\fmemos.api.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xbe\x02\n" +
+	"\x1aapi/v1/board_service.proto\x12\fmemos.api.v1\x1a\x1cgoogle/api/annotations.proto\x1a\x17google/api/client.proto\x1a\x1fgoogle/api/field_behavior.proto\x1a\x19google/api/resource.proto\x1a\x1bgoogle/protobuf/empty.proto\x1a google/protobuf/field_mask.proto\x1a\x1fgoogle/protobuf/timestamp.proto\"\xf6\x04\n" +
 	"\x05Board\x12\x17\n" +
 	"\x04name\x18\x01 \x01(\tB\x03\xe0A\bR\x04name\x12\x19\n" +
 	"\x05title\x18\x02 \x01(\tB\x03\xe0A\x02R\x05title\x128\n" +
@@ -495,7 +513,15 @@ const file_api_v1_board_service_proto_rawDesc = "" +
 	"\vcreate_time\x18\x04 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\n" +
 	"createTime\x12@\n" +
 	"\vupdate_time\x18\x05 \x01(\v2\x1a.google.protobuf.TimestampB\x03\xe0A\x03R\n" +
-	"updateTime:C\xeaA@\n" +
+	"updateTime\x12U\n" +
+	"\x0fcategory_colors\x18\x06 \x03(\v2'.memos.api.v1.Board.CategoryColorsEntryB\x03\xe0A\x01R\x0ecategoryColors\x12X\n" +
+	"\x10milestone_colors\x18\a \x03(\v2(.memos.api.v1.Board.MilestoneColorsEntryB\x03\xe0A\x01R\x0fmilestoneColors\x1aA\n" +
+	"\x13CategoryColorsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01\x1aB\n" +
+	"\x14MilestoneColorsEntry\x12\x10\n" +
+	"\x03key\x18\x01 \x01(\tR\x03key\x12\x14\n" +
+	"\x05value\x18\x02 \x01(\tR\x05value:\x028\x01:C\xeaA@\n" +
 	"\x12memos.api.v1/Board\x12\x1busers/{user}/boards/{board}*\x06boards2\x05board\"\x81\x01\n" +
 	"\vBoardColumn\x12\x13\n" +
 	"\x02id\x18\x01 \x01(\tB\x03\xe0A\bR\x02id\x12\x19\n" +
@@ -541,7 +567,7 @@ func file_api_v1_board_service_proto_rawDescGZIP() []byte {
 	return file_api_v1_board_service_proto_rawDescData
 }
 
-var file_api_v1_board_service_proto_msgTypes = make([]protoimpl.MessageInfo, 8)
+var file_api_v1_board_service_proto_msgTypes = make([]protoimpl.MessageInfo, 10)
 var file_api_v1_board_service_proto_goTypes = []any{
 	(*Board)(nil),                 // 0: memos.api.v1.Board
 	(*BoardColumn)(nil),           // 1: memos.api.v1.BoardColumn
@@ -551,33 +577,37 @@ var file_api_v1_board_service_proto_goTypes = []any{
 	(*CreateBoardRequest)(nil),    // 5: memos.api.v1.CreateBoardRequest
 	(*UpdateBoardRequest)(nil),    // 6: memos.api.v1.UpdateBoardRequest
 	(*DeleteBoardRequest)(nil),    // 7: memos.api.v1.DeleteBoardRequest
-	(*timestamppb.Timestamp)(nil), // 8: google.protobuf.Timestamp
-	(*fieldmaskpb.FieldMask)(nil), // 9: google.protobuf.FieldMask
-	(*emptypb.Empty)(nil),         // 10: google.protobuf.Empty
+	nil,                           // 8: memos.api.v1.Board.CategoryColorsEntry
+	nil,                           // 9: memos.api.v1.Board.MilestoneColorsEntry
+	(*timestamppb.Timestamp)(nil), // 10: google.protobuf.Timestamp
+	(*fieldmaskpb.FieldMask)(nil), // 11: google.protobuf.FieldMask
+	(*emptypb.Empty)(nil),         // 12: google.protobuf.Empty
 }
 var file_api_v1_board_service_proto_depIdxs = []int32{
 	1,  // 0: memos.api.v1.Board.columns:type_name -> memos.api.v1.BoardColumn
-	8,  // 1: memos.api.v1.Board.create_time:type_name -> google.protobuf.Timestamp
-	8,  // 2: memos.api.v1.Board.update_time:type_name -> google.protobuf.Timestamp
-	0,  // 3: memos.api.v1.ListBoardsResponse.boards:type_name -> memos.api.v1.Board
-	0,  // 4: memos.api.v1.CreateBoardRequest.board:type_name -> memos.api.v1.Board
-	0,  // 5: memos.api.v1.UpdateBoardRequest.board:type_name -> memos.api.v1.Board
-	9,  // 6: memos.api.v1.UpdateBoardRequest.update_mask:type_name -> google.protobuf.FieldMask
-	2,  // 7: memos.api.v1.BoardService.ListBoards:input_type -> memos.api.v1.ListBoardsRequest
-	4,  // 8: memos.api.v1.BoardService.GetBoard:input_type -> memos.api.v1.GetBoardRequest
-	5,  // 9: memos.api.v1.BoardService.CreateBoard:input_type -> memos.api.v1.CreateBoardRequest
-	6,  // 10: memos.api.v1.BoardService.UpdateBoard:input_type -> memos.api.v1.UpdateBoardRequest
-	7,  // 11: memos.api.v1.BoardService.DeleteBoard:input_type -> memos.api.v1.DeleteBoardRequest
-	3,  // 12: memos.api.v1.BoardService.ListBoards:output_type -> memos.api.v1.ListBoardsResponse
-	0,  // 13: memos.api.v1.BoardService.GetBoard:output_type -> memos.api.v1.Board
-	0,  // 14: memos.api.v1.BoardService.CreateBoard:output_type -> memos.api.v1.Board
-	0,  // 15: memos.api.v1.BoardService.UpdateBoard:output_type -> memos.api.v1.Board
-	10, // 16: memos.api.v1.BoardService.DeleteBoard:output_type -> google.protobuf.Empty
-	12, // [12:17] is the sub-list for method output_type
-	7,  // [7:12] is the sub-list for method input_type
-	7,  // [7:7] is the sub-list for extension type_name
-	7,  // [7:7] is the sub-list for extension extendee
-	0,  // [0:7] is the sub-list for field type_name
+	10, // 1: memos.api.v1.Board.create_time:type_name -> google.protobuf.Timestamp
+	10, // 2: memos.api.v1.Board.update_time:type_name -> google.protobuf.Timestamp
+	8,  // 3: memos.api.v1.Board.category_colors:type_name -> memos.api.v1.Board.CategoryColorsEntry
+	9,  // 4: memos.api.v1.Board.milestone_colors:type_name -> memos.api.v1.Board.MilestoneColorsEntry
+	0,  // 5: memos.api.v1.ListBoardsResponse.boards:type_name -> memos.api.v1.Board
+	0,  // 6: memos.api.v1.CreateBoardRequest.board:type_name -> memos.api.v1.Board
+	0,  // 7: memos.api.v1.UpdateBoardRequest.board:type_name -> memos.api.v1.Board
+	11, // 8: memos.api.v1.UpdateBoardRequest.update_mask:type_name -> google.protobuf.FieldMask
+	2,  // 9: memos.api.v1.BoardService.ListBoards:input_type -> memos.api.v1.ListBoardsRequest
+	4,  // 10: memos.api.v1.BoardService.GetBoard:input_type -> memos.api.v1.GetBoardRequest
+	5,  // 11: memos.api.v1.BoardService.CreateBoard:input_type -> memos.api.v1.CreateBoardRequest
+	6,  // 12: memos.api.v1.BoardService.UpdateBoard:input_type -> memos.api.v1.UpdateBoardRequest
+	7,  // 13: memos.api.v1.BoardService.DeleteBoard:input_type -> memos.api.v1.DeleteBoardRequest
+	3,  // 14: memos.api.v1.BoardService.ListBoards:output_type -> memos.api.v1.ListBoardsResponse
+	0,  // 15: memos.api.v1.BoardService.GetBoard:output_type -> memos.api.v1.Board
+	0,  // 16: memos.api.v1.BoardService.CreateBoard:output_type -> memos.api.v1.Board
+	0,  // 17: memos.api.v1.BoardService.UpdateBoard:output_type -> memos.api.v1.Board
+	12, // 18: memos.api.v1.BoardService.DeleteBoard:output_type -> google.protobuf.Empty
+	14, // [14:19] is the sub-list for method output_type
+	9,  // [9:14] is the sub-list for method input_type
+	9,  // [9:9] is the sub-list for extension type_name
+	9,  // [9:9] is the sub-list for extension extendee
+	0,  // [0:9] is the sub-list for field type_name
 }
 
 func init() { file_api_v1_board_service_proto_init() }
@@ -591,7 +621,7 @@ func file_api_v1_board_service_proto_init() {
 			GoPackagePath: reflect.TypeOf(x{}).PkgPath(),
 			RawDescriptor: unsafe.Slice(unsafe.StringData(file_api_v1_board_service_proto_rawDesc), len(file_api_v1_board_service_proto_rawDesc)),
 			NumEnums:      0,
-			NumMessages:   8,
+			NumMessages:   10,
 			NumExtensions: 0,
 			NumServices:   1,
 		},

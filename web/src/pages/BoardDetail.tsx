@@ -3,6 +3,7 @@ import {
   closestCorners,
   DndContext,
   type DragEndEvent,
+  type DragOverEvent,
   DragOverlay,
   type DragStartEvent,
   KeyboardSensor,
@@ -132,14 +133,16 @@ export const BoardDetail = () => {
         for (const c of getCardCategories(card.kanban)) {
           if (!map.has(c)) {
             const cardColor =
-              card.kanban.category === c && card.kanban.categoryColorHex ? card.kanban.categoryColorHex : getCategoryColor(c);
+              card.kanban.category === c && card.kanban.categoryColorHex
+                ? card.kanban.categoryColorHex
+                : getCategoryColor(c, undefined, board?.categoryColors);
             map.set(c, cardColor);
           }
         }
       }
     }
     return Array.from(map.entries()).map(([name, color]) => ({ name, color }));
-  }, [cards]);
+  }, [cards, board?.categoryColors]);
 
   // Extract unique milestones across cards for filtering & milestone tracking
   const allMilestones = useMemo(() => {
@@ -258,6 +261,12 @@ export const BoardDetail = () => {
     return groupCardsByColumn(filteredCards, columnIds);
   }, [cards, board?.columns, filterStatus, filterCategory, filterMilestone, filterDue, dueDateFrom, dueDateTo]);
 
+  const [overTargetState, setOverTargetState] = useState<{
+    cardName: string;
+    targetColumnId: string;
+    targetIndex: number;
+  } | null>(null);
+
   if (isBoardsLoading || isCardsLoading) {
     return (
       <div className="flex h-full w-full items-center justify-center p-8">
@@ -292,10 +301,68 @@ export const BoardDetail = () => {
     }
   };
 
+  const handleDragOver = (event: DragOverEvent) => {
+    const { active, over } = event;
+    if (!over) {
+      setOverTargetState(null);
+      return;
+    }
+    const activeData = active.data.current;
+    if (activeData?.type !== "card") return;
+
+    const activeMemoName = String(active.id);
+    const overData = over.data.current;
+
+    let targetColumnId = "";
+    let targetOverMemoName = "";
+
+    if (overData?.type === "column") {
+      targetColumnId = overData.columnId;
+    } else if (overData?.type === "card") {
+      targetColumnId = overData.columnId;
+      targetOverMemoName = String(over.id);
+    } else if (board?.columns.some((col) => col.id === over.id)) {
+      targetColumnId = String(over.id);
+    } else {
+      const overMemo = cards.find((c) => c.name === over.id);
+      if (overMemo?.kanban?.columnId) {
+        targetColumnId = overMemo.kanban.columnId;
+        targetOverMemoName = overMemo.name;
+      }
+    }
+
+    if (!targetColumnId) {
+      setOverTargetState(null);
+      return;
+    }
+
+    const colCards = columnCardsMap.get(targetColumnId) || [];
+    const listWithout = colCards.filter((c) => c.name !== activeMemoName);
+    let targetIndex = listWithout.length;
+    if (targetOverMemoName) {
+      const idx = listWithout.findIndex((c) => c.name === targetOverMemoName);
+      if (idx !== -1) {
+        targetIndex = idx;
+      }
+    }
+
+    setOverTargetState((prev) => {
+      if (prev && prev.cardName === activeMemoName && prev.targetColumnId === targetColumnId && prev.targetIndex === targetIndex) {
+        return prev;
+      }
+      return {
+        cardName: activeMemoName,
+        targetColumnId,
+        targetIndex,
+      };
+    });
+  };
+
   const handleDragEnd = async (event: DragEndEvent) => {
     const { active, over } = event;
     setActiveCard(null);
     setActiveColumn(null);
+    setOverTargetState(null);
 
     if (!over) return;
 
@@ -883,28 +950,46 @@ export const BoardDetail = () => {
         />
       ) : (
         <div className="flex flex-1 items-start gap-4 overflow-x-auto p-4 sm:p-6 [scrollbar-width:thin]">
-          <DndContext sensors={sensors} collisionDetection={closestCorners} onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <DndContext
+            sensors={sensors}
+            collisionDetection={closestCorners}
+            onDragStart={handleDragStart}
+            onDragOver={handleDragOver}
+            onDragEnd={handleDragEnd}
+            onDragCancel={() => {
+              setActiveCard(null);
+              setActiveColumn(null);
+              setOverTargetState(null);
+            }}
+          >
             <SortableContext items={board.columns.map((c) => c.id)} strategy={horizontalListSortingStrategy}>
-              {board.columns.map((column, idx) => (
-                <KanbanColumn
-                  key={column.id}
-                  boardId={boardId}
-                  column={column}
-                  cards={columnCardsMap.get(column.id) || []}
-                  canMoveLeft={idx > 0}
-                  canMoveRight={idx < board.columns.length - 1}
-                  canDelete={board.columns.length > 1}
-                  onRename={(title) => handleRenameColumn(column.id, title)}
-                  onRecolor={(color) => handleRecolorColumn(column.id, color)}
-                  onSetWipLimit={(limit) => handleSetWipLimit(column.id, limit)}
-                  onMoveLeft={() => handleMoveColumn(idx, "left")}
-                  onMoveRight={() => handleMoveColumn(idx, "right")}
-                  onDelete={() => handleDeleteColumn(column.id)}
-                  onAddMemo={() => handleOpenAddMemo(column.id)}
-                  onSelectCard={(memo) => setSelectedMemoName(memo.name)}
-                  parentPage={`/boards/${boardId}`}
-                />
-              ))}
+              {board.columns.map((column, idx) => {
+                const isCrossColumnTarget =
+                  activeCard && activeCard.kanban?.columnId !== column.id && overTargetState?.targetColumnId === column.id;
+                const dropIndicatorIndex = isCrossColumnTarget ? overTargetState.targetIndex : null;
+
+                return (
+                  <KanbanColumn
+                    key={column.id}
+                    boardId={boardId}
+                    column={column}
+                    cards={columnCardsMap.get(column.id) || []}
+                    dropIndicatorIndex={dropIndicatorIndex}
+                    canMoveLeft={idx > 0}
+                    canMoveRight={idx < board.columns.length - 1}
+                    canDelete={board.columns.length > 1}
+                    onRename={(title) => handleRenameColumn(column.id, title)}
+                    onRecolor={(color) => handleRecolorColumn(column.id, color)}
+                    onSetWipLimit={(limit) => handleSetWipLimit(column.id, limit)}
+                    onMoveLeft={() => handleMoveColumn(idx, "left")}
+                    onMoveRight={() => handleMoveColumn(idx, "right")}
+                    onDelete={() => handleDeleteColumn(column.id)}
+                    onAddMemo={() => handleOpenAddMemo(column.id)}
+                    onSelectCard={(memo) => setSelectedMemoName(memo.name)}
+                    parentPage={`/boards/${boardId}`}
+                  />
+                );
+              })}
             </SortableContext>
 
             {/* New Column Button Placeholder */}

@@ -220,3 +220,38 @@ func TestUserBoardsRoundTripSpecialCharacters(t *testing.T) {
 	require.Equal(t, board.Columns[1].Title, boards[0].Columns[1].Title)
 	require.NotNil(t, boards[0].CreatedAt)
 }
+
+func TestUserBoardColorPersistence(t *testing.T) {
+	t.Parallel()
+	ctx := context.Background()
+	ts := NewTestingStore(ctx, t)
+	defer ts.Close()
+	user, err := createTestingHostUser(ctx, ts)
+	require.NoError(t, err)
+
+	board := &storepb.BoardsUserSetting_Board{
+		Id:        "board-colors",
+		Title:     "Color Test Board",
+		CreatedAt: timestamppb.Now(),
+		Columns: []*storepb.BoardsUserSetting_BoardColumn{
+			{Id: "col-1", Title: "Todo"},
+		},
+		CategoryColors: map[string]string{
+			"Bug":     "#ef4444",
+			"Feature": "#3b82f6",
+		},
+		MilestoneColors: map[string]string{
+			"v1.0": "#6366f1",
+			"v2.0": "#10b981",
+		},
+	}
+	require.NoError(t, ts.UpsertUserBoard(ctx, user.ID, board))
+
+	savedBoard, err := ts.GetUserBoard(ctx, user.ID, "board-colors")
+	require.NoError(t, err)
+	require.NotNil(t, savedBoard)
+	require.Equal(t, "#ef4444", savedBoard.CategoryColors["Bug"])
+	require.Equal(t, "#3b82f6", savedBoard.CategoryColors["Feature"])
+	require.Equal(t, "#6366f1", savedBoard.MilestoneColors["v1.0"])
+	require.Equal(t, "#10b981", savedBoard.MilestoneColors["v2.0"])
+}

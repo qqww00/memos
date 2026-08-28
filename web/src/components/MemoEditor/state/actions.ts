@@ -2,9 +2,19 @@ import type { LocalFile } from "../types/attachment";
 import type { EditorAction, EditorState, LoadingKey } from "./types";
 
 export const editorActions = {
-  initMemo: (payload: { content: string; metadata: EditorState["metadata"]; timestamps: EditorState["timestamps"] }): EditorAction => ({
+  initMemo: (payload: {
+    title?: string;
+    content: string;
+    metadata: EditorState["metadata"];
+    timestamps: EditorState["timestamps"];
+  }): EditorAction => ({
     type: "INIT_MEMO",
     payload,
+  }),
+
+  setTitle: (title: string): EditorAction => ({
+    type: "SET_TITLE",
+    payload: title,
   }),
 
   updateContent: (content: string): EditorAction => ({

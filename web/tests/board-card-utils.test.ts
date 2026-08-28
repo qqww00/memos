@@ -88,6 +88,9 @@ describe("cardUtils", () => {
 
       const override = getCategoryColor("Backend", "#ff0000");
       expect(override).toBe("#ff0000");
+
+      const mapOverride = getCategoryColor("Backend", undefined, { Backend: "#10b981" });
+      expect(mapOverride).toBe("#10b981");
     });
   });
 
@@ -104,6 +107,12 @@ describe("cardUtils", () => {
       const color2 = getMilestoneColor("v1.0-release");
       expect(color1).toBe(color2);
       expect(color1.startsWith("#")).toBe(true);
+
+      const override = getMilestoneColor("v1.0-release", "#ef4444");
+      expect(override).toBe("#ef4444");
+
+      const mapOverride = getMilestoneColor("v1.0-release", undefined, { "v1.0-release": "#8b5cf6" });
+      expect(mapOverride).toBe("#8b5cf6");
     });
   });
 });

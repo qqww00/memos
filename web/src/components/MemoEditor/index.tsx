@@ -56,6 +56,7 @@ const MemoEditorImpl: React.FC<MemoEditorProps> = ({
   // toolbar/metadata children.
   const isFocusMode = useEditorSelector((s) => s.ui.isFocusMode);
   const isSaving = useEditorSelector((s) => s.ui.isLoading.saving);
+  const title = useEditorSelector((s) => s.title);
   const hasTimestamp = useEditorSelector((s) => Boolean(s.timestamps.createTime));
   const { userGeneralSetting } = useAuth();
   const { aiSetting, fetchSetting } = useInstance();
@@ -311,6 +312,18 @@ const MemoEditorImpl: React.FC<MemoEditorProps> = ({
         {(memoName || (!memo && hasTimestamp)) && (
           <div className="w-full -mb-1">
             <TimestampPopover />
+          </div>
+        )}
+
+        {!parentMemoName && (
+          <div className="w-full pt-1 pb-1">
+            <input
+              type="text"
+              value={title}
+              onChange={(e) => dispatch(actions.setTitle(e.target.value))}
+              placeholder="Title (optional)..."
+              className="w-full text-sm font-semibold placeholder:text-muted-foreground/50 placeholder:font-normal bg-transparent border-0 border-b border-border/40 pb-1.5 pt-0.5 focus:outline-hidden focus:border-primary/60 transition-colors"
+            />
           </div>
         )}
 

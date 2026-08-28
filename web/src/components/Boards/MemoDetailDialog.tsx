@@ -26,7 +26,7 @@ import { Button } from "@/components/ui/button";
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Input } from "@/components/ui/input";
-import { useBoardCards, useUpdateMemoKanban } from "@/hooks/useBoardQueries";
+import { boardIdFromName, useBoardCards, useBoards, useUpdateBoard, useUpdateMemoKanban } from "@/hooks/useBoardQueries";
 import { useInfiniteMemoComments, useMemo as useMemoQuery, useUpdateMemo } from "@/hooks/useMemoQueries";
 import { cn } from "@/lib/utils";
 import { State } from "@/types/proto/api/v1/common_pb";
@@ -73,6 +73,10 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
   });
 
   const boardId = memo?.kanban?.boardId || "";
+  const { data: boards = [] } = useBoards();
+  const board = useMemo(() => boards.find((b) => boardIdFromName(b.name) === boardId || b.name === boardId), [boards, boardId]);
+  const updateBoard = useUpdateBoard();
+
   const { data: boardCards = [] } = useBoardCards(boardId, {
     enabled: !!boardId && open,
   });
@@ -91,30 +95,42 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
   // Extract all categories already used across this board
   const availableBoardCategories = useMemo(() => {
     const map = new Map<string, string>();
+    if (board?.categoryColors) {
+      for (const [name, color] of Object.entries(board.categoryColors)) {
+        if (name && color) map.set(name, color);
+      }
+    }
     for (const card of boardCards) {
       if (card.kanban) {
         for (const c of getCardCategories(card.kanban)) {
           if (!map.has(c)) {
             const cardColor =
-              card.kanban.category === c && card.kanban.categoryColorHex ? card.kanban.categoryColorHex : getCategoryColor(c);
+              card.kanban.category === c && card.kanban.categoryColorHex
+                ? card.kanban.categoryColorHex
+                : getCategoryColor(c, undefined, board?.categoryColors);
             map.set(c, cardColor);
           }
         }
       }
     }
     return Array.from(map.entries()).map(([name, color]) => ({ name, color }));
-  }, [boardCards]);
+  }, [boardCards, board?.categoryColors]);
 
   // Extract all milestones across this board
   const availableBoardMilestones = useMemo(() => {
     const set = new Set<string>();
+    if (board?.milestoneColors) {
+      for (const m of Object.keys(board.milestoneColors)) {
+        if (m.trim()) set.add(m.trim());
+      }
+    }
     for (const card of boardCards) {
       if (card.kanban?.milestone?.trim()) {
         set.add(card.kanban.milestone.trim());
       }
     }
     return Array.from(set).sort();
-  }, [boardCards]);
+  }, [boardCards, board?.milestoneColors]);
 
   // Sync draft states when memo changes
   useEffect(() => {
@@ -125,14 +141,11 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     setMilestoneDraft(getCardMilestone(memo.kanban) || "");
 
     const initialColors: Record<string, string> = {};
-    for (const item of availableBoardCategories) {
-      initialColors[item.name] = item.color;
-    }
     if (memo.kanban?.category && memo.kanban.categoryColorHex) {
       initialColors[memo.kanban.category] = memo.kanban.categoryColorHex;
       setNewCatColor(memo.kanban.categoryColorHex);
     } else if (cats[0]) {
-      const col = initialColors[cats[0]] || getCategoryColor(cats[0]);
+      const col = board?.categoryColors?.[cats[0]] || getCategoryColor(cats[0], undefined, board?.categoryColors);
       setNewCatColor(col);
     }
     setCategoryColorMap(initialColors);
@@ -147,12 +160,22 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
     } else {
       setDueDateDraft("");
     }
-  }, [memo, availableBoardCategories]);
+  }, [
+    memo?.name,
+    memo?.kanban?.isClosed,
+    memo?.kanban?.category,
+    memo?.kanban?.categoryColorHex,
+    memo?.kanban?.milestone,
+    memo?.kanban?.dueTime?.seconds,
+  ]);
 
   const resolveCategoryColor = (cat: string) => {
     return (
       categoryColorMap[cat] ||
-      (memo?.kanban?.category === cat && memo?.kanban?.categoryColorHex ? memo.kanban.categoryColorHex : getCategoryColor(cat))
+      board?.categoryColors?.[cat] ||
+      (memo?.kanban?.category === cat && memo?.kanban?.categoryColorHex
+        ? memo.kanban.categoryColorHex
+        : getCategoryColor(cat, undefined, board?.categoryColors))
     );
   };
 
@@ -259,6 +282,9 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
 
     const primaryCategory = categoriesDraft[0];
     const primaryColor = primaryCategory ? categoryColorMap[primaryCategory] || newCatColor : undefined;
+    const milestoneColor = milestoneDraft
+      ? board?.milestoneColors?.[milestoneDraft] || memo.kanban.milestoneColorHex || getMilestoneColor(milestoneDraft)
+      : undefined;
 
     try {
       await updateMemoKanban.mutateAsync({
@@ -271,10 +297,36 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
           category: primaryCategory || undefined,
           categoryColorHex: primaryColor,
           milestone: milestoneDraft || undefined,
+          milestoneColorHex: milestoneColor,
           dueTime: dueTimestamp,
           isClosed: isClosedDraft,
         }),
       });
+
+      // Save category color into board setting in database if updated
+      if (board && primaryCategory && primaryColor && board.categoryColors?.[primaryCategory] !== primaryColor) {
+        const nextCatColors = { ...(board.categoryColors || {}), [primaryCategory]: primaryColor };
+        await updateBoard.mutateAsync({
+          board: {
+            name: board.name,
+            categoryColors: nextCatColors,
+          },
+          updateMask: ["category_colors"],
+        });
+      }
+
+      // Save milestone color into board setting in database if updated
+      if (board && milestoneDraft && milestoneColor && board.milestoneColors?.[milestoneDraft] !== milestoneColor) {
+        const nextMilestoneColors = { ...(board.milestoneColors || {}), [milestoneDraft]: milestoneColor };
+        await updateBoard.mutateAsync({
+          board: {
+            name: board.name,
+            milestoneColors: nextMilestoneColors,
+          },
+          updateMask: ["milestone_colors"],
+        });
+      }
+
       toast.success("Board changes saved");
     } catch {
       toast.error("Failed to save changes");
@@ -377,6 +429,7 @@ export const MemoDetailDialog = ({ memoName, open, onOpenChange, parentPage }: M
                 <MemoCommentSection
                   memo={memo}
                   comments={comments}
+                  activities={memo.activities || []}
                   parentPage={parentPage}
                   hasMoreComments={hasNextComments}
                   isFetchingMoreComments={isFetchingNextComments}

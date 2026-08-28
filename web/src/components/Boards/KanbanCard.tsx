@@ -55,7 +55,7 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
   const { mutateAsync: updateMemo } = useUpdateMemo();
   const [showAllSubtasks, setShowAllSubtasks] = useState(false);
 
-  const { attributes, listeners, setNodeRef, transform, isDragging } = useSortable({
+  const { attributes, listeners, setNodeRef, transform, transition, isDragging } = useSortable({
     id: memo.name,
     data: {
       type: "card",
@@ -63,11 +63,11 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
       columnId,
     },
     disabled: isOverlay,
-    animateLayoutChanges: () => false,
   });
 
   const style: React.CSSProperties = {
     transform: CSS.Translate.toString(transform),
+    transition,
   };
 
   const { title, description } = parseCardContent(memo.content);
@@ -212,20 +212,24 @@ export const KanbanCard = ({ memo, columnId, isOverlay = false, onSelect }: Kanb
             )}
           </button>
 
-          {milestone && (
-            <span
-              className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold truncate max-w-[130px] shadow-2xs"
-              style={{
-                backgroundColor: `${getMilestoneColor(milestone)}20`,
-                color: getMilestoneColor(milestone),
-                border: `1px solid ${getMilestoneColor(milestone)}50`,
-              }}
-              title={`Milestone: ${milestone}`}
-            >
-              <TargetIcon className="size-2.5 shrink-0" />
-              <span className="truncate">{milestone}</span>
-            </span>
-          )}
+          {milestone &&
+            (() => {
+              const mColor = memo.kanban?.milestoneColorHex || getMilestoneColor(milestone);
+              return (
+                <span
+                  className="inline-flex items-center gap-1 px-1.5 py-0.5 rounded text-[10px] font-semibold truncate max-w-[130px] shadow-2xs"
+                  style={{
+                    backgroundColor: `${mColor}20`,
+                    color: mColor,
+                    border: `1px solid ${mColor}50`,
+                  }}
+                  title={`Milestone: ${milestone}`}
+                >
+                  <TargetIcon className="size-2.5 shrink-0" />
+                  <span className="truncate">{milestone}</span>
+                </span>
+              );
+            })()}
 
           {categories.map((cat) => {
             const isPrimary = memo.kanban?.category === cat;

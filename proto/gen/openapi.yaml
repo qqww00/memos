@@ -1640,7 +1640,7 @@ paths:
                     type: string
                 - name: updateMask
                   in: query
-                  description: 'Optional. The list of fields to update. Supported paths: title, columns.'
+                  description: 'Optional. The list of fields to update. Supported paths: title, columns, category_colors, milestone_colors.'
                   schema:
                     type: string
                     format: field-mask
@@ -2531,6 +2531,41 @@ paths:
                                 $ref: '#/components/schemas/Status'
 components:
     schemas:
+        Activity:
+            type: object
+            properties:
+                name:
+                    readOnly: true
+                    type: string
+                    description: |-
+                        The resource name of the activity.
+                         Format: memos/{memo}/activities/{activity}
+                type:
+                    readOnly: true
+                    type: string
+                    description: The type of activity (e.g. "UPDATE_CATEGORY", "UPDATE_MILESTONE", "MOVE_COLUMN", "UPDATE_STATUS", "UPDATE_DUE_TIME").
+                description:
+                    readOnly: true
+                    type: string
+                    description: Human readable description of what changed.
+                createTime:
+                    readOnly: true
+                    type: string
+                    description: Output only. The creation timestamp of this activity log.
+                    format: date-time
+                creator:
+                    readOnly: true
+                    type: string
+                    description: |-
+                        The resource name of the user who performed the activity.
+                         Format: users/{user}
+                oldValue:
+                    readOnly: true
+                    type: string
+                newValue:
+                    readOnly: true
+                    type: string
+            description: Activity is an audit log of changes made to a memo's metadata on boards.
         Attachment:
             required:
                 - filename
@@ -2671,6 +2706,16 @@ components:
                     type: string
                     description: Output only. The last update timestamp.
                     format: date-time
+                categoryColors:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: 'Optional map of category names to hex colors, e.g. {"Bug": "#ef4444"}.'
+                milestoneColors:
+                    type: object
+                    additionalProperties:
+                        type: string
+                    description: 'Optional map of milestone names to hex colors, e.g. {"v1.0": "#6366f1"}.'
         BoardColumn:
             required:
                 - title
@@ -3316,6 +3361,9 @@ components:
                 milestone:
                     type: string
                     description: Optional milestone label for this card on the board.
+                milestoneColorHex:
+                    type: string
+                    description: Optional milestone badge color hex.
         LinkMetadata:
             type: object
             properties:
@@ -3673,6 +3721,12 @@ components:
                         Optional. The kanban card state of the memo.
                          Settable via UpdateMemo with the "kanban" field mask path.
                          An empty kanban message clears the card state.
+                activities:
+                    readOnly: true
+                    type: array
+                    items:
+                        $ref: '#/components/schemas/Activity'
+                    description: Output only. The activity history of the memo on boards.
         MemoRelation:
             required:
                 - memo

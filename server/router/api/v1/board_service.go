@@ -65,9 +65,11 @@ func convertBoardFromStore(username string, board *storepb.BoardsUserSetting_Boa
 		})
 	}
 	boardMessage := &v1pb.Board{
-		Name:    constructBoardName(username, board.GetId()),
-		Title:   board.GetTitle(),
-		Columns: columns,
+		Name:            constructBoardName(username, board.GetId()),
+		Title:           board.GetTitle(),
+		Columns:         columns,
+		CategoryColors:  board.GetCategoryColors(),
+		MilestoneColors: board.GetMilestoneColors(),
 	}
 	if board.GetCreatedAt() != nil {
 		boardMessage.CreateTime = board.GetCreatedAt()
@@ -229,11 +231,13 @@ func (s *APIV1Service) CreateBoard(ctx context.Context, request *v1pb.CreateBoar
 
 	now := timestamppb.Now()
 	newBoard := &storepb.BoardsUserSetting_Board{
-		Id:        util.GenUUID(),
-		Title:     title,
-		Columns:   columns,
-		CreatedAt: now,
-		UpdatedAt: now,
+		Id:              util.GenUUID(),
+		Title:           title,
+		Columns:         columns,
+		CategoryColors:  request.GetBoard().GetCategoryColors(),
+		MilestoneColors: request.GetBoard().GetMilestoneColors(),
+		CreatedAt:       now,
+		UpdatedAt:       now,
 	}
 
 	if request.ValidateOnly {
@@ -284,6 +288,10 @@ func (s *APIV1Service) UpdateBoard(ctx context.Context, request *v1pb.UpdateBoar
 				return nil, status.Errorf(codes.InvalidArgument, "invalid columns: %v", err)
 			}
 			existing.Columns = columns
+		case "category_colors", "categoryColors":
+			existing.CategoryColors = request.GetBoard().GetCategoryColors()
+		case "milestone_colors", "milestoneColors":
+			existing.MilestoneColors = request.GetBoard().GetMilestoneColors()
 		default:
 			return nil, status.Errorf(codes.InvalidArgument, "unsupported update mask path: %s", field)
 		}
